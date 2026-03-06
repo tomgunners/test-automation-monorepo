@@ -1,0 +1,11 @@
+{
+  "name": "performance-tests",
+  "version": "1.0.0",
+  "description": "Testes de Performance com k6",
+  "private": true,
+  "scripts": {
+    "test": "node -e \"require('fs').mkdirSync('results', {recursive:true})\" && k6 run src/scenarios/products.test.js",
+    "test:report": "start results/report.html",
+    "clean": "rimraf results"
+  }
+}

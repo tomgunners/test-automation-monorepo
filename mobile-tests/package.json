@@ -1,0 +1,33 @@
+{
+  "name": "mobile-tests",
+  "version": "1.0.0",
+  "description": "Testes Mobile com WebdriverIO v8 + Appium 2 + TypeScript",
+  "private": true,
+  "scripts": {
+    "test": "wdio run src/config/wdio.android.conf.ts",
+    "report:allure": "allure generate allure-results -o allure-report --clean && allure open allure-report",
+    "clean": "rimraf allure-results allure-report reports/screenshots",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.30",
+    "@wdio/allure-reporter": "^8.36.1",
+    "@wdio/appium-service": "^8.36.1",
+    "@wdio/cli": "^8.36.1",
+    "@wdio/globals": "^8.36.1",
+    "@wdio/local-runner": "^8.36.1",
+    "@wdio/mocha-framework": "^8.36.1",
+    "@wdio/spec-reporter": "^8.36.1",
+    "@wdio/types": "^8.36.1",
+    "rimraf": "^5.0.5",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.3",
+    "webdriverio": "^8.36.1"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

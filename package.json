@@ -1,0 +1,39 @@
+{
+  "name": "test-automation-monorepo",
+  "version": "1.0.0",
+  "description": "Monorepo de automação de testes: Web, API e Performance",
+  "private": true,
+  "workspaces": [
+    "web-tests",
+    "api-tests",
+    "performance-tests",
+    "mobile-tests"
+  ],
+  "resolutions": {
+    "expect-webdriverio": "5.6.4"
+  },
+  "scripts": {
+    "test:web": "yarn workspace web-tests test",
+    "test:web:report": "yarn workspace web-tests report:cucumber",
+    "test:web:allure": "yarn workspace web-tests report:allure",
+    "test:api": "yarn workspace api-tests test",
+    "test:api:report": "yarn workspace api-tests test:report",
+    "test:perf": "yarn workspace performance-tests test",
+    "test:perf:report": "yarn workspace performance-tests test:report",
+    "test:mobile": "yarn workspace mobile-tests test",
+    "test:mobile:allure": "yarn workspace mobile-tests report:allure",
+    "test:all": "yarn test:web && yarn test:api && yarn test:perf && yarn test:mobile",
+    "lint": "yarn workspaces run lint",
+    "clean": "yarn workspaces run clean",
+    "postinstall": "playwright install"
+  },
+  "devDependencies": {
+    "ts-node": "^10.9.2",
+    "tsconfig-paths": "^4.2.0",
+    "typescript": "^5.3.3"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "yarn": ">=1.22.0"
+  }
+}
