@@ -315,7 +315,12 @@ yarn appium:start
 # Passo 2 — Inicie o emulador
 # Android Studio → Device Manager → ▶ Play
 
-# Passo 3 — Rode os testes
+# Passo 3 — Crie uma sub-pasta dentro da pasta mobile-tests com o nome apps
+# E dentro dela jogue o apk baixado no link: https://github.com/webdriverio/native-demo-app/releases
+# Renomeie o arquivo como: wdio-native-demo-app.apk
+
+
+# Passo 4 — Rode os testes
 yarn test:mobile          # todos os testes
 ```
 
