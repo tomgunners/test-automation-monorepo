@@ -24,7 +24,6 @@ on:
         type: choice
         options:
           - default
-          - smoke
           - regression
       perf_mode:
         description: 'Modo de performance'
@@ -61,15 +60,10 @@ jobs:
             path: api-tests
             script: test:api
 
-          - name: Web Tests (smoke)
+          - name: Web Tests (regression)
             suite: web
             path: web-tests
-            script: test:smoke
-
-          - name: Web Tests (regression)
-            suite: web-regression
-            path: web-tests
-            script: test:regression
+            script: test:web:regression
 
           - name: Performance Tests
             suite: performance
@@ -118,7 +112,7 @@ jobs:
 
       # ─── Cache Playwright browsers (apenas web) ──────────────────────────────
       - name: Cache Playwright browsers
-        if: startsWith(matrix.suite, 'web')
+        if: matrix.suite == 'web'
         uses: actions/cache@v4
         id: cache-playwright
         with:
@@ -129,12 +123,12 @@ jobs:
 
       # ─── Instalar browsers do Playwright (apenas web) ────────────────────────
       - name: Instalar Playwright browsers
-        if: startsWith(matrix.suite, 'web') && steps.cache-playwright.outputs.cache-hit != 'true'
+        if: matrix.suite == 'web' && steps.cache-playwright.outputs.cache-hit != 'true'
         run: npx playwright install --with-deps chromium
 
       # ─── Instalar Allure CLI (apenas web) ────────────────────────────────────
       - name: Instalar Allure CLI
-        if: startsWith(matrix.suite, 'web')
+        if: matrix.suite == 'web'
         run: npm install -g allure-commandline
 
       # ─── Executar testes ─────────────────────────────────────────────────────
@@ -153,7 +147,7 @@ jobs:
               yarn workspace performance-tests test:gate
             fi
           else
-            yarn ${{ matrix.script }}
+            yarn workspace ${{ matrix.path }} ${{ matrix.script }}
           fi
         env:
           BASE_URL: https://www.saucedemo.com
@@ -164,7 +158,7 @@ jobs:
 
       # ─── Gerar relatório Allure (apenas web) ─────────────────────────────────
       - name: Gerar relatório Allure
-        if: always() && startsWith(matrix.suite, 'web')
+        if: always() && matrix.suite == 'web'
         run: yarn workspace web-tests run allure:generate
 
       # ─── Upload de artefatos ─────────────────────────────────────────────────
@@ -206,7 +200,7 @@ jobs:
           environment: github-pages
           onlyRemoveDeployments: true
 
-      - name: Download Allure report (smoke)
+      - name: Download Allure report (web)
         uses: actions/download-artifact@v4
         with:
           name: results-web-${{ github.run_id }}
