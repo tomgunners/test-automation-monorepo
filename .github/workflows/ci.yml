@@ -145,6 +145,7 @@ jobs:
           github.event_name != 'workflow_dispatch'
         run: |
           if [ "${{ matrix.suite }}" = "performance" ]; then
+            export BASE_URL=https://dummyjson.com
             MODE="${{ github.event.inputs.perf_mode || 'informative' }}"
             if [ "$MODE" = "informative" ]; then
               yarn workspace performance-tests test:informative
@@ -156,7 +157,6 @@ jobs:
           fi
         env:
           BASE_URL: https://www.saucedemo.com
-          # HEADLESS=true → sem janela no CI (correto: true = headless, sem inversão)
           HEADLESS: 'true'
           BROWSER: chromium
           API_BASE_URL: https://dummyjson.com
