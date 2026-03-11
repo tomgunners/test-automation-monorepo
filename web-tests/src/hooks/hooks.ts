@@ -7,14 +7,20 @@ import {
   setDefaultTimeout,
   Status
 } from '@cucumber/cucumber';
-import { chromium, firefox, webkit } from 'playwright';
+
+import { Browser, BrowserContext, Page, chromium, firefox, webkit } from 'playwright';
 import { CustomWorld } from './world';
 import { config } from '../config/env.config';
+
 import * as fs from 'fs';
 import * as path from 'path';
 
 setWorldConstructor(CustomWorld);
 setDefaultTimeout(config.timeouts.default);
+
+let sharedBrowser: Browser;
+let sharedContext: BrowserContext;
+let sharedPage: Page;
 
 function clearDir(dir: string): void {
   if (fs.existsSync(dir)) {
@@ -26,20 +32,12 @@ function clearDir(dir: string): void {
   }
 }
 
-BeforeAll(function () {
+BeforeAll(async function () {
   clearDir('allure-results');
 
-  const dirs = ['test-results', 'test-results/screenshots'];
-  for (const dir of dirs) {
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
-    }
+  for (const dir of ['test-results', 'test-results/screenshots']) {
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
   }
-});
-
-
-Before(async function (this: CustomWorld, { pickle }) {
-  this.scenarioName = pickle.name;
 
   const browserType =
     config.browser.type === 'firefox'
@@ -48,51 +46,79 @@ Before(async function (this: CustomWorld, { pickle }) {
         ? webkit
         : chromium;
 
-  this.browser = await browserType.launch({
-    headless: !config.browser.headless,
-    slowMo: config.browser.slowMo
+  sharedBrowser = await browserType.launch({
+    headless: config.browser.headless,    // removido inversão do headless
+    slowMo: config.browser.slowMo,
+    args: ['--start-maximized']     //adicionado args para maximizar a tela do browser
   });
 
-  this.context = await this.browser.newContext({
-    viewport: { width: 1920, height: 1080 },
+  sharedContext = await sharedBrowser.newContext({
+    viewport: null,
     locale: 'pt-BR',
     timezoneId: 'America/Sao_Paulo'
   });
 
-  this.page = await this.context.newPage();
-  this.page.setDefaultTimeout(config.timeouts.default);
+  // usa a mesma aba para todos os testes
+  sharedPage = await sharedContext.newPage();
+  sharedPage.setDefaultTimeout(config.timeouts.default);
+});
+
+
+Before(async function (this: CustomWorld, { pickle }) {
+
+  this.scenarioName = pickle.name;
+  this.browser = sharedBrowser;
+  this.context = sharedContext;
+  this.page = sharedPage;
+
+  // volta para estado neutro
+  if (!sharedPage.isClosed()) {
+    await sharedPage.goto('about:blank');
+  }
 
   this.initPages();
 });
 
 After(async function (this: CustomWorld, { result, pickle }) {
-  if (result?.status === Status.FAILED && this.page) {
+
+  if (result?.status === Status.FAILED && this.page && !this.page.isClosed()) {
     try {
       const screenshot = await this.page.screenshot({ fullPage: true });
+      await this.attach(screenshot, 'image/png');
+      const safeName = pickle.name.replace(/[^a-z0-9]/gi, '_');
+      const screenshotPath = path.join(
+        'test-results',
+        'screenshots',
+        `${safeName}_${Date.now()}.png`
+      );
 
-      if (screenshot) {
-        await this.attach(screenshot, 'image/png');
+      fs.writeFileSync(screenshotPath, screenshot);
+      console.error(`Screenshot salvo: ${screenshotPath}`);
 
-        const safeName = pickle.name.replace(/[^a-z0-9]/gi, '_');
-        const screenshotPath = path.join(
-          'test-results', 'screenshots',
-          `${safeName}_${Date.now()}.png`
-        );
-        fs.writeFileSync(screenshotPath, screenshot);
-        console.error(`Screenshot salvo: ${screenshotPath}`);
-      }
     } catch (err) {
-      console.error('Não foi possível capturar screenshot:', err);
+      console.error('Erro ao capturar screenshot', err);
     }
   }
 
-  await this.context?.close();
-  await this.browser?.close();
+  // limpa estado da aplicação (uma única vez)
+  try {
+    if (this.page && !this.page.isClosed()) {
+      await this.page.evaluate(() => {
+        localStorage.clear();
+        sessionStorage.clear();
+      });
+      await sharedContext.clearCookies();
+    }
+  } catch {
+    // ignorar se a página estiver em about:blank ou navegação pendente
+  }
 });
 
-// ─── AfterAll: log final ──────────────────────────────────────────────────────
-AfterAll(function () {
-  console.log('\n Suíte de testes Web finalizada.');
+AfterAll(async function () {
+  await sharedContext?.close();
+  await sharedBrowser?.close();
+
+  console.log('\nSuíte de testes Web finalizada.');
   console.log('Execute o comando: [yarn test:web:report] para acessar o relatório pelo cucumber');
-  console.log('AExecute o comando: [yarn test:web:allure] para acessar o relatório pelo allure');
+  console.log('Execute o comando: [yarn test:web:allure] para acessar o relatório pelo allure');
 });

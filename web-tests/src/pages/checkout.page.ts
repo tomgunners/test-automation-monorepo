@@ -32,7 +32,7 @@ export class CheckoutPage extends BasePage {
 
   async getErrorMessage(): Promise<string> {
     await this.waitForElement(CheckoutLocators.errorMessage);
-    return this.page.textContent(CheckoutLocators.errorMessage) ?? '';
+    return await this.page.textContent(CheckoutLocators.errorMessage) ?? '';
   }
 
   async isErrorVisible(): Promise<boolean> {
@@ -42,7 +42,7 @@ export class CheckoutPage extends BasePage {
   // ─── Step 2: Resumo do pedido ──────────────────────────────────────────────
 
   async getOrderTotal(): Promise<string> {
-    return this.page.textContent(CheckoutLocators.total) ?? '';
+    return await this.page.textContent(CheckoutLocators.total) ?? '';
   }
 
   async clickFinish(): Promise<void> {
@@ -56,7 +56,7 @@ export class CheckoutPage extends BasePage {
   }
 
   async getConfirmationHeader(): Promise<string> {
-    return this.page.textContent(CheckoutLocators.confirmationHeader) ?? '';
+    return await this.page.textContent(CheckoutLocators.confirmationHeader) ?? '';
   }
 
   async isConfirmationVisible(): Promise<boolean> {

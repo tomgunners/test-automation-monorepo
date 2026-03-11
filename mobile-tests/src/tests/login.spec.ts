@@ -35,6 +35,6 @@ describe('Login', () => {
     await login.tapLoginWithoutCredentials();
 
     expect(await login.hasError()).toBe(true);
-    expect(await login.getErrorMessage());
+    expect(await login.getErrorMessage()).toBeTruthy();
   });
 });

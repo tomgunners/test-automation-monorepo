@@ -1,4 +1,4 @@
-# Automação de Testes - Projeto Monorepo    [![TA - Pipeline](https://github.com/tomgunners/test-automation-monorepo/actions/workflows/ci.yml/badge.svg)](https://github.com/tomgunners/test-automation-monorepo/actions/workflows/ci.yml)
+# Automação de Testes - Projeto Monorepo [![TA - Pipeline](https://github.com/tomgunners/test-automation-monorepo/actions/workflows/ci.yml/badge.svg)](https://github.com/tomgunners/test-automation-monorepo/actions/workflows/ci.yml)
 
 Monorepo completo de automação de testes com quatro projetos independentes: **Web E2E**, **API**, **Performance** e **Mobile**
 
@@ -7,20 +7,20 @@ Monorepo completo de automação de testes com quatro projetos independentes: **
 ## Estrutura do Projeto
 
 ```
-monorepo/
+test-automation-monorepo/
 ├── .github/
 │   └── workflows/
 │       └── ci.yml                  # Pipeline CI/CD (GitHub Actions)
 ├── web-tests/                      # Testes E2E com Playwright + Cucumber
 │   ├── src/
 │   │   ├── config/                 # Configurações e variáveis de ambiente
-│   │   ├── features/               # Arquivos .feature (BDD/Gherkin)
+│   │   ├── features/               # Arquivos .feature (BDD/Gherkin) com tags @smoke/@regression
 │   │   ├── hooks/                  # Lifecycle hooks + World do Cucumber
 │   │   ├── locators/               # Seletores separados das Pages
 │   │   ├── pages/                  # Page Objects
 │   │   └── steps/                  # Step definitions
 │   ├── .env                        # Variáveis de ambiente
-│   ├── cucumber.config.ts          # Configuração do Cucumber
+│   ├── cucumber.js                 # Perfis: default | smoke | regression | allure
 │   ├── package.json
 │   └── tsconfig.json
 ├── api-tests/                      # Testes de API com Supertest + Mocha
@@ -30,33 +30,27 @@ monorepo/
 │   │   ├── schemas/                # Tipos TypeScript + validadores de schema
 │   │   ├── tests/                  # Suítes de teste
 │   │   └── utils/                  # Utilitários compartilhados
-│   ├── .env                        # Variáveis de ambiente
+│   ├── .env
 │   ├── package.json
 │   └── tsconfig.json
 ├── performance-tests/              # Testes de Performance com k6
 │   ├── src/
-│   │   ├── config/                 # Opções e thresholds do k6
+│   │   ├── config/                 # Perfis de carga: load | spike | soak
 │   │   ├── scenarios/              # Scripts de teste k6
 │   │   └── utils/                  # Clients HTTP + gerador de relatório
 │   └── package.json
-├── mobile-tests/                   # Testes Mobile Appium + WebDriveIO               
-├── apps/                              # APK / APP do app sob teste
-├── src/
-│   ├── config/
-│   │   ├── wdio.android.conf.ts       # Capabilities Android (UiAutomator2)
-│   │   └── wdio.shared.conf.ts        # Config base (reporters, hooks, mocha)
-│   ├── locators/                      # Seletores separados das Pages
-│   │   └── login.locators.ts
-│   ├── pages/                         # Screen Objects
-│   │   ├── base.page.ts               # Classe base: wait, tap, fill, swipe
-│   │   └── login.screen.ts
-│   ├── tests/                         # Specs
-│   │   └── login.spec.ts              # 4 cenários
-│   ├── types/
-│   │   └── mobile.types.ts
-│   └── utils/
-│   │   └── test.utils.ts              # Credenciais, dados, restartApp()
-│   ├── .env                           # Variáveis de ambiente
+├── mobile-tests/                   # Testes Mobile com WebdriverIO + Appium 2
+│   ├── apps/                       # APK do app sob teste
+│   ├── src/
+│   │   ├── config/
+│   │   │   ├── wdio.android.conf.ts
+│   │   │   └── wdio.shared.conf.ts
+│   │   ├── locators/
+│   │   ├── pages/
+│   │   ├── tests/
+│   │   ├── types/
+│   │   └── utils/
+│   ├── .env
 │   ├── package.json
 │   └── tsconfig.json
 ├── package.json                    # Raiz do monorepo (Yarn Workspaces)
@@ -70,41 +64,26 @@ monorepo/
 
 | Ferramenta | Versão mínima | Instalação |
 |------------|--------------|------------|
-| Node.js    | 18.x         | [nodejs.org](https://nodejs.org) |
+| Node.js    | 20.x         | [nodejs.org](https://nodejs.org) |
 | Yarn       | 1.22.x       | `npm install -g yarn` |
 | k6         | 0.49.x       | [k6.io/docs/get-started/installation](https://k6.io/docs/get-started/installation/) |
 | Allure CLI | 2.x          | `npm install -g allure-commandline` |
 | Java JDK   | ≥ 11         | oracle.com/java |
 | Appium 2   | ≥ 2.x        | `npm i -g appium` |
 
-
-### Pré-requisitos Android
-
-```bash
-# 1. Instale o Android Studio e configure ANDROID_HOME e JAVA_HOME
-# 2. Instale o driver UiAutomator2
-appium driver install uiautomator2
-
-# 3. Verifique o setup completo
-npx appium-doctor --android
-```
-
 ---
 
 ## Instalação
 
 ```bash
-# Clonar o repositório
 git clone <url-do-repositorio>
 cd test-automation-monorepo
-
-# Instalar todas as dependências dos workspaces
 yarn install
 ```
 
 ---
 
-## Projeto Testes Web (E2E)
+## Projeto — Testes Web (E2E)
 
 **Stack:** ![Playwright](https://img.shields.io/badge/Playwright-1.42.1-45ba4b?style=flat&logo=playwright&logoColor=white)
 ![Cucumber](https://img.shields.io/badge/Cucumber-10.3.1-23d96c?style=flat&logo=cucumber&logoColor=white)
@@ -126,53 +105,67 @@ yarn install
 | Checkout  | Finalizar compra com sucesso                |
 | Checkout  | Campos obrigatórios vazios                  |
 
+### Variável HEADLESS
+
+| Valor | Comportamento |
+|-------|---------------|
+| `HEADLESS=true`  | Browser sem janela
+| `HEADLESS=false` | Browser visível 
+
+### Tags disponíveis nos cenários
+
+| Tag | Quando usar |
+|-----|-------------|
+| `@smoke`      | Cenários críticos e rápidos — validação pós-deploy |
+| `@regression` | Cobertura completa — antes de releases |
+| `@severity:critical` / `@severity:normal` | Severidade para o relatório Allure |
+
 ### Executar testes
 
 ```bash
-# Rodar todos os testes web (headless)
+# Todos os cenários (headless, perfil default)
 yarn test:web
 
-# Rodar com browser visível
-cd web-tests && HEADLESS=true yarn test
+# Apenas smoke (críticos, mais rápido)
+yarn test:web:smoke
 
-# Rodar um browser específico
-cd web-tests && BROWSER=firefox yarn test
+# Regressão completa
+yarn test:web:regression
 
-# Abrir o relatório Playwright HTML
-yarn test:web:report
+# Com browser visível (debug)
+yarn test:web:headed
 
-# Gerar e abrir relatório Allure
-yarn test:web:allure
+# Ou passando tag diretamente:
+cd web-tests && npx cucumber-js --tags "@smoke"
+cd web-tests && npx cucumber-js --tags "@regression and not @wip"
+
+# Relatórios
+yarn test:web:report    # Cucumber HTML
+yarn test:web:allure    # Gera e abre relatório Allure
 ```
 
 ### Variáveis de ambiente (`web-tests/.env`)
 
-| Variável            | Padrão                        | Descrição                |
-|---------------------|-------------------------------|--------------------------|
-| `BASE_URL`          | `https://www.saucedemo.com`   | URL base da aplicação    |
-| `HEADLESS`          | `false`                       | Modo headless            |
-| `BROWSER`           | `chromium`                    | chromium/firefox/webkit  |
-| `DEFAULT_TIMEOUT`   | `30000`                       | Timeout padrão (ms)      |
+| Variável            | Padrão                      | Descrição               |
+|---------------------|-----------------------------|-------------------------|
+| `BASE_URL`          | `https://www.saucedemo.com` | URL base da aplicação   |
+| `HEADLESS`          | `true`                      | `true` = sem janela     |
+| `BROWSER`           | `chromium`                  | chromium / firefox / webkit |
+| `SLOW_MO`           | `0`                         | Delay entre ações (ms)  |
+| `DEFAULT_TIMEOUT`   | `10000`                     | Timeout padrão (ms)     |
+| `NAVIGATION_TIMEOUT`| `60000`                     | Timeout de navegação (ms)|
 
 ### Arquitetura Web
 
 ```
 src/
-├── config/       → Configurações centralizadas (baseUrl, credenciais, timeouts)
-├── locators/     → Seletores CSS/data-test separados das Pages
-│   ├── login.locators.ts
-│   ├── inventory.locators.ts
-│   ├── cart.locators.ts
-│   └── checkout.locators.ts
-├── pages/        → Page Objects (encapsulam interações)
-│   ├── base.page.ts     ← Classe base com métodos comuns
-│   ├── login.page.ts
-│   ├── inventory.page.ts
-│   ├── cart.page.ts
-│   └── checkout.page.ts
-├── hooks/        → Lifecycle (Before/After) + World (contexto compartilhado)
-├── steps/        → Step definitions por módulo
-└── features/     → Arquivos .feature em português (BDD/Gherkin)
+├── config/    → env.config.ts (lê .env e exporta config tipado)
+├── features/  → .feature com tags @smoke / @regression / @severity
+├── hooks/     → hooks.ts (browser 1x no BeforeAll, contexto por cenário)
+│               world.ts  (CustomWorld — página e page objects)
+├── locators/  → Seletores CSS separados das Pages
+├── pages/     → Page Objects (base.page.ts + pages específicas)
+└── steps/     → Step definitions por módulo
 ```
 
 ---
@@ -203,36 +196,16 @@ src/
 ### Executar testes
 
 ```bash
-# Rodar todos os testes de API
-yarn test:api
-
-# Abrir relatório HTML (Mochawesome)
-yarn test:api:report
+yarn test:api           # Roda todos os testes de API
+yarn test:api:report    # Abre relatório Mochawesome
 ```
 
 ### Variáveis de ambiente (`api-tests/.env`)
 
-| Variável          | Padrão                    | Descrição               |
-|-------------------|---------------------------|-------------------------|
-| `API_BASE_URL`    | `https://dummyjson.com`   | URL base da API         |
-| `REQUEST_TIMEOUT` | `10000`                   | Timeout de requisição   |
-
-### Arquitetura API
-
-```
-src/
-├── client/       → HttpClient base + Services por recurso
-│   ├── http.client.ts    ← Classe base com métodos get/post/put/delete
-│   └── user.service.ts   ← Service específico do recurso Users
-├── schemas/      → Tipos TypeScript + validadores de schema
-│   ├── user.types.ts     ← Interfaces e tipos
-│   └── user.schema.ts    ← Funções de validação de schema
-├── tests/        → Suítes de teste por recurso
-│   └── users.test.ts
-├── utils/        → Utilitários compartilhados
-│   └── api.utils.ts
-└── config/       → Configuração e setup
-```
+| Variável          | Padrão                  | Descrição             |
+|-------------------|-------------------------|-----------------------|
+| `API_BASE_URL`    | `https://dummyjson.com` | URL base da API       |
+| `REQUEST_TIMEOUT` | `10000`                 | Timeout de requisição |
 
 ---
 
@@ -243,48 +216,60 @@ src/
 
 **API testada:** [https://dummyjson.com/docs/products](https://dummyjson.com/docs/products)
 
-### Configuração de carga
+### Perfis de carga
 
-| Parâmetro           | Valor                        |
-|---------------------|------------------------------|
-| Usuários simultâneos | 25 VUs (rampa gradual)     |
-| Duração total        | 5 minutos                   |
-| Rampa de subida      | 3 minutos (0 → 500 VUs)     |
-| Sustentação          | 1 minuto (500 VUs estáveis) |
-| Rampa de descida     | 1 minuto (500 → 0 VUs)      |
+| Perfil  | Descrição | VUs máx | Duração |
+|---------|-----------|---------|---------|
+| `load`  | Rampa gradual — tráfego normal | 25 VUs | ~3 min |
+| `spike` | Pico repentino — burst de tráfego | 100 VUs | ~1,5 min |
+| `soak`  | Endurance — detecta degradação longa | 15 VUs | ~10 min |
 
-### Thresholds (SLA)
+### Modos de execução
 
-| Métrica              | Threshold    |
-|----------------------|--------------|
-| `http_req_duration p(95)` | `< 2000ms`    |
-| `http_req_duration p(99)` | `< 5000ms`    |
-| `http_req_failed`         | `< 0.05%`     |
-| `http_reqs` (throughput)  | `> 10 req/s`  |
+| Modo | Script | Comportamento no CI |
+|------|--------|---------------------|
+| `gate`        | `test:perf:gate`        | Quebra o pipeline se thresholds falharem |
+| `informative` | `test:perf:informative` | Apenas reporta, nunca quebra o pipeline  |
 
 ### Executar testes
 
 ```bash
-# Rodar teste completo (500 VUs / 5 min)
+# Modo gate com perfil load (padrão — quebra se thresholds falharem)
 yarn test:perf
 
-# Rodar com dashboard HTML embutido
-cd performance-tests && yarn test:html
+# Modo informativo (nunca quebra o pipeline)
+yarn test:perf:informative
 
-# Rodar modo debug (1 VU / 10 seg — para validar o script)
-cd performance-tests && yarn test:debug
+# Perfis específicos
+yarn test:perf:spike   # Teste de pico
+yarn test:perf:soak    # Teste de endurance
 
-# Exibir relatório do último resultado
+# Com variáveis customizadas
+cd performance-tests
+STAGES_PROFILE=spike k6 run src/scenarios/products.test.js
+VUS=50 DURATION=2m k6 run src/scenarios/products.test.js
+
+# Relatório do último resultado
 yarn test:perf:report
 ```
 
-### Relatórios gerados
+### Variáveis de ambiente (k6)
 
-| Arquivo                       | Descrição                          |
-|-------------------------------|------------------------------------|
-| `results/report.html`         | Relatório visual HTML completo     |
-| `results/summary.json`        | JSON com todas as métricas brutas  |
-| Terminal (stdout)             | Sumário formatado com cores        |
+| Variável         | Padrão   | Descrição |
+|------------------|----------|-----------|
+| `BASE_URL`       | `https://dummyjson.com` | URL alvo |
+| `STAGES_PROFILE` | `load`   | Perfil: `load` \| `spike` \| `soak` |
+| `VUS`            | —        | VUs custom (sobrescreve o perfil) |
+| `DURATION`       | —        | Duração custom, ex.: `5m` (sobrescreve o perfil) |
+
+### Thresholds (SLA)
+
+| Métrica                    | Threshold  |
+|----------------------------|------------|
+| `http_req_duration p(95)`  | `< 2000ms` |
+| `http_req_duration p(99)`  | `< 5000ms` |
+| `http_req_failed`          | `< 5%`     |
+| `http_reqs` (throughput)   | `> 10 req/s` |
 
 ---
 
@@ -309,140 +294,136 @@ yarn test:perf:report
 ### Executar testes
 
 ```bash
-# Passo 1 — Inicie o Appium em um terminal separado
-yarn appium:start
+# Passo 1 — Inicie o Appium
+appium
 
-# Passo 2 — Inicie o emulador
-# Android Studio → Device Manager → ▶ Play
+# Passo 2 — Inicie o emulador no Android Studio
 
-# Passo 3 — Crie uma sub-pasta dentro da pasta mobile-tests com o nome apps
-# E dentro dela jogue o apk baixado no link: https://github.com/webdriverio/native-demo-app/releases
-# Renomeie o arquivo como: wdio-native-demo-app.apk
-
+# Passo 3 — Adicione o APK
+# Baixe em: https://github.com/webdriverio/native-demo-app/releases
+# Coloque em mobile-tests/apps/wdio-native-demo-app.apk
 
 # Passo 4 — Rode os testes
-yarn test:mobile          # todos os testes
+yarn test:mobile
+
+# Relatório Allure
+yarn test:mobile:allure
 ```
 
 ### Variáveis de ambiente (`mobile-tests/.env`)
 
-| Variável                    | Padrão                                      | Descrição                            |
-|-----------------------------|---------------------------------------------|--------------------------------------|
-| `APPIUM_HOST`               | `127.0.0.1`                                 | Endereço do servidor Appium          |
-| `APPIUM_PORT`               | `4723`                                      | Porta do servidor Appium             |
-| `ANDROID_PLATFORM_VERSION`  | `14.0`                                      | Versão do Android (`adb shell getprop ro.build.version release`) |
-| `ANDROID_DEVICE_NAME`       | `emulator-5554`                             | Serial do dispositivo (`adb devices`)|
-| `ANDROID_APP_NAME`          | `Android.SauceLabs.Mobile.Sample.app.apk`   | Nome do APK em `apps/`               |
-| `ELEMENT_TIMEOUT`           | `15000`                                     | Timeout de espera por elemento (ms)  |
-| `TEST_TIMEOUT`              | `120000`                                    | Timeout total por teste (ms)         |
-| `APPIUM_COMMAND_TIMEOUT`    | `300`                                       | Timeout de inatividade da sessão (s) |
+| Variável                   | Padrão         | Descrição |
+|----------------------------|----------------|-----------|
+| `APPIUM_HOST`              | `127.0.0.1`    | Endereço Appium |
+| `APPIUM_PORT`              | `4723`         | Porta Appium |
+| `ANDROID_PLATFORM_VERSION` | `15.0`         | Versão Android |
+| `ANDROID_DEVICE_NAME`      | `emulator-5554`| Serial do dispositivo |
+| `ANDROID_APP_NAME`         | `wdio-native-demo-app.apk` | Nome do APK em `apps/` |
+| `ELEMENT_TIMEOUT`          | `15000`        | Timeout de elemento (ms) |
+| `TEST_TIMEOUT`             | `120000`       | Timeout por teste (ms) |
+| `APPIUM_COMMAND_TIMEOUT`   | `300`          | Timeout de inatividade (s) |
 
 ---
 
 ## Relatórios
 
-### Web Tests
-
 ```bash
-# Relatório Cucumber HTML (interativo)
-yarn test:web:report
+# Web
+yarn test:web:report         # Cucumber HTML
+yarn test:web:allure         # Allure (gera + abre)
 
-# Servir relatório Allure no browser
-yarn test:web:allure
+# API
+yarn test:api:report         # Mochawesome HTML
+
+# Performance
+yarn test:perf:report        # Sumário k6 no terminal + HTML em results/
+
+# Mobile
+yarn test:mobile:allure      # Allure (gera + abre)
 ```
 
-### API Tests
-
-```bash
-# Relatório Mochawesome (interativo)
-yarn test:api:report
-```
-
-### Performance Tests
-
-```bash
-# Relatório Mochawesome (interativo)
-yarn test:perf:report
-```
-
-### Mobile Tests
-```bash
-yarn test:mobile:allure     # Gera e abre o relatório Allure
-```
 ---
 
-## Executar Todos os Testes
+## Scripts disponíveis (raiz do monorepo)
 
 ```bash
-# Executa Web → API → Performance sequencialmente
-yarn test:all
+# Web
+yarn test:web                # Todos os cenários (headless)
+yarn test:web:smoke          # Apenas @smoke
+yarn test:web:regression     # Apenas @regression
+yarn test:web:report         # Relatório Cucumber HTML
+yarn test:web:allure         # Relatório Allure
+
+# API
+yarn test:api                # Todos os testes de API
+yarn test:api:report         # Relatório Mochawesome
+
+# Performance
+yarn test:perf               # Gate mode, perfil load
+yarn test:perf:informative   # Apenas reporta, nunca quebra
+yarn test:perf:spike         # Perfil spike
+yarn test:perf:soak          # Perfil soak/endurance
+yarn test:perf:report        # Exibe último resultado
+
+# Mobile
+yarn test:mobile             # Todos os testes mobile
+yarn test:mobile:allure      # Relatório Allure
+
+# Utilitários
+yarn test:all                # Web + API + Performance + Mobile
+yarn lint                    # ESLint em todos os workspaces
+yarn clean                   # Remove artefatos gerados
 ```
 
 ---
 
 ## CI/CD
 
-Pipeline configurado em `.github/workflows/ci.yml` para GitHub Actions.
+Pipeline em `.github/workflows/ci.yml` para GitHub Actions.
 
 ### Triggers
-- Push na branche `main`
+
+- Push na branch `main`
 - Pull Requests para `main`
-- Execução manual com seleção de suíte
+- Execução manual com seleção de suíte, perfil web, modo performance e perfil k6
 
 ### Jobs
 
-| Job                 | Trigger          | Artefatos gerados              |
-|---------------------|------------------|--------------------------------|
-| `api-tests`         | Sempre           | Relatório Mochawesome          |
-| `web-tests`         | Sempre           | Allure Report + Cucumber HTML  |
-| `performance-tests` | Sempre           | HTML + JSON do k6              |
+| Job                        | Artefatos gerados |
+|----------------------------|-------------------|
+| API Tests                  | Relatório Mochawesome |
+| Web Tests (smoke)          | Allure Report + Cucumber HTML |
+| Web Tests (regression)     | Allure Report + Cucumber HTML |
+| Performance Tests          | HTML + JSON do k6 |
+
+### Configuração de HEADLESS no CI
+
+O CI define `HEADLESS: 'true'`, o que faz o browser rodar sem janela — comportamento correto e esperado em ambientes headless como o `ubuntu-latest`. Não há inversão de lógica: `HEADLESS=true` significa sem janela.
 
 ---
 
 ## Decisões Arquiteturais
 
+### Headless sem inversão (Web)
+`HEADLESS=true` → browser sem janela. `HEADLESS=false` → browser visível. A variável é lida diretamente por `process.env.HEADLESS === 'true'` sem nenhuma negação no código.
+
+### Browser reutilizado entre cenários (Web)
+O browser é lançado uma única vez no `BeforeAll` e fechado no `AfterAll`. Cada cenário cria um `context` isolado com sua própria `page`. Isso reduz o tempo total da suíte e mantém isolamento completo entre os cenários.
+
+### Tags @smoke / @regression (Web)
+Cenários críticos recebem `@smoke` — executados em todo push para validação rápida. Cenários de cobertura completa recebem `@regression` — executados antes de releases.
+
+### Dois modos de performance no CI
+`test:perf:gate` quebra o pipeline quando thresholds de SLA falham — comportamento de quality gate real. `test:perf:informative` usa `--no-thresholds` e nunca quebra — ideal para monitoramento contínuo ou ambientes instáveis.
+
+### Perfis de carga k6 (load / spike / soak)
+Cada perfil usa `scenarios` com `executor: ramping-vus`, refletindo padrões profissionais de carga. O perfil é selecionável via `STAGES_PROFILE` ou sobrescrito com `VUS` + `DURATION` para execuções ad-hoc.
+
 ### Page Object + Locators separados
 Seletores ficam em arquivos `*.locators.ts` independentes. Atualizar um seletor não exige tocar na lógica da Page/Screen.
 
-### AccessibilityID como estratégia primária (Mobile)
-O seletor `~accessibilityId` funciona igual em Android e iOS. Quando não disponível, usa-se XPath com `@text` para validações de mensagens de erro.
+### Screenshot + logs no Allure (Mobile)
+O hook `afterTest` salva o screenshot em disco, anexa ao Allure como `image/png` e adiciona um attachment `text/plain` com mensagem e stack trace do erro — tudo em um único passo de falha.
 
-### `browser.reloadSession()` no lugar de `driver.reset()`
+### `browser.reloadSession()` no lugar de `driver.reset()` (Mobile)
 O `driver.reset()` foi depreciado no Appium 2. O `reloadSession()` garante estado limpo entre testes sem reinstalar o APK.
-
-### Appium iniciado manualmente (Mobile)
-Evita problemas de path do `@wdio/appium-service` no Windows. Iniciar manualmente dá visibilidade dos logs em tempo real.
-
-### HttpClient base + Services (API)
-O `HttpClient` abstrai o supertest. Cada `Service` implementa apenas os endpoints do seu recurso, sem duplicar código HTTP.
-
-### k6 com rampa gradual (Performance)
-Estágios progressivos simulam tráfego real e evitam spike artificial nos resultados.
-
----
-
-## Scripts Disponíveis
-
-```bash
-# Web
-yarn test:web                # Testes E2E
-yarn test:web:report         # Relatório Playwright
-yarn test:web:allure         # Relatório Allure
-
-# API
-yarn test:api                # Testes de API
-yarn test:api:report         # Relatório Mochawesome
-
-# Performance
-yarn test:performance        # Teste completo (500 VUs)
-yarn test:performance:report # Exibe relatório k6
-
-# Mobile
-yarn test:mobile             # Todos os testes mobile
-yarn test:mobile:allure      # Relatório Allure
-
-# Geral
-yarn test:all                # Web + API + Performance
-yarn lint                    # ESLint em todos os projetos
-yarn clean                   # Remove artefatos gerados
-```

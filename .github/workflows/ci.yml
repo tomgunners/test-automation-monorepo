@@ -17,6 +17,32 @@ on:
           - web
           - api
           - performance
+      web_profile:
+        description: 'Projeto Web E2E'
+        required: false
+        default: 'default'
+        type: choice
+        options:
+          - default
+          - smoke
+          - regression
+      perf_mode:
+        description: 'Modo de performance'
+        required: false
+        default: 'gate'
+        type: choice
+        options:
+          - gate        # quebra o pipeline se os thresholds falharem
+          - informative # apenas reporta, nunca quebra
+      perf_profile:
+        description: 'Projeto K6 Performance'
+        required: false
+        default: 'load'
+        type: choice
+        options:
+          - load
+          - spike
+          - soak
 
 env:
   NODE_VERSION: '20'
@@ -35,10 +61,15 @@ jobs:
             path: api-tests
             script: test:api
 
-          - name: Web Tests
+          - name: Web Tests (smoke)
             suite: web
             path: web-tests
-            script: test:web
+            script: test:smoke
+
+          - name: Web Tests (regression)
+            suite: web-regression
+            path: web-tests
+            script: test:regression
 
           - name: Performance Tests
             suite: performance
@@ -87,7 +118,7 @@ jobs:
 
       # ─── Cache Playwright browsers (apenas web) ──────────────────────────────
       - name: Cache Playwright browsers
-        if: matrix.suite == 'web'
+        if: startsWith(matrix.suite, 'web')
         uses: actions/cache@v4
         id: cache-playwright
         with:
@@ -98,12 +129,12 @@ jobs:
 
       # ─── Instalar browsers do Playwright (apenas web) ────────────────────────
       - name: Instalar Playwright browsers
-        if: matrix.suite == 'web' && steps.cache-playwright.outputs.cache-hit != 'true'
+        if: startsWith(matrix.suite, 'web') && steps.cache-playwright.outputs.cache-hit != 'true'
         run: npx playwright install --with-deps chromium
 
       # ─── Instalar Allure CLI (apenas web) ────────────────────────────────────
       - name: Instalar Allure CLI
-        if: matrix.suite == 'web'
+        if: startsWith(matrix.suite, 'web')
         run: npm install -g allure-commandline
 
       # ─── Executar testes ─────────────────────────────────────────────────────
@@ -112,17 +143,28 @@ jobs:
           github.event.inputs.test_suite == matrix.suite ||
           github.event.inputs.test_suite == 'all' ||
           github.event_name != 'workflow_dispatch'
-        run: yarn ${{ matrix.script }}
-        continue-on-error: ${{ matrix.suite == 'performance' }}
+        run: |
+          if [ "${{ matrix.suite }}" = "performance" ]; then
+            MODE="${{ github.event.inputs.perf_mode || 'informative' }}"
+            if [ "$MODE" = "informative" ]; then
+              yarn workspace performance-tests test:informative
+            else
+              yarn workspace performance-tests test:gate
+            fi
+          else
+            yarn ${{ matrix.script }}
+          fi
         env:
           BASE_URL: https://www.saucedemo.com
-          HEADLESS: 'false'
+          # HEADLESS=true → sem janela no CI (correto: true = headless, sem inversão)
+          HEADLESS: 'true'
           BROWSER: chromium
           API_BASE_URL: https://dummyjson.com
+          STAGES_PROFILE: ${{ github.event.inputs.perf_profile || 'load' }}
 
       # ─── Gerar relatório Allure (apenas web) ─────────────────────────────────
       - name: Gerar relatório Allure
-        if: always() && matrix.suite == 'web'
+        if: always() && startsWith(matrix.suite, 'web')
         run: yarn workspace web-tests run allure:generate
 
       # ─── Upload de artefatos ─────────────────────────────────────────────────
@@ -151,7 +193,7 @@ jobs:
       contents: write
       pages: write
       id-token: write
-      deployments: write    
+      deployments: write
 
     steps:
       - name: Checkout
@@ -162,9 +204,9 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           environment: github-pages
-          onlyRemoveDeployments: true 
-          
-      - name: Download Allure report
+          onlyRemoveDeployments: true
+
+      - name: Download Allure report (smoke)
         uses: actions/download-artifact@v4
         with:
           name: results-web-${{ github.run_id }}

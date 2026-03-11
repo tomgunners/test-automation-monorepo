@@ -5,8 +5,9 @@
   "private": true,
   "scripts": {
     "test": "cucumber-js --profile default",
-    "test:headless": "cross-env HEADED=true cucumber-js --profile default",
-    "report:cucumber": "start test-results/cucumber-report.html",
+    "test:smoke": "cross-env cucumber-js --profile smoke",
+    "test:regression": "cross-env cucumber-js --profile regression",
+    "report:cucumber": "node -e \"const {execSync}=require('child_process');try{execSync('open test-results/cucumber-report.html')}catch{execSync('start test-results/cucumber-report.html')}\"",
     "allure:generate": "allure generate allure-results -o allure-report --clean",
     "report:allure": "allure generate allure-results -o allure-report --clean && allure open allure-report",
     "clean": "rimraf allure-results allure-report test-results",
@@ -19,6 +20,7 @@
     "allure-cucumberjs": "^3.0.0",
     "allure-js-commons": "^3.0.0",
     "cross-env": "^7.0.3",
+    "cucumber-pretty": "^6.0.1",
     "dotenv": "^16.4.5",
     "playwright": "^1.42.1"
   },

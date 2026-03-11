@@ -65,24 +65,73 @@ export const sharedConfig: Partial<Options.Testrunner> = {
 
   /**
    * Executado após cada teste.
-   * Captura screenshot automaticamente em falhas e anexa ao Allure.
+   * Em falhas: captura screenshot, anexa ao Allure e registra o log de erro.
    */
-  async afterTest(_test, _ctx, { passed, error }) {
+  async afterTest(test, _ctx, { passed, error }) {
     if (!passed) {
+      const testTitle = test.title ?? 'unknown_test';
+
+      // ── Screenshot ────────────────────────────────────────────────────────
       try {
-        await browser.takeScreenshot();
-        console.error(`\nFalha: ${error?.message ?? 'erro desconhecido'}`);
-      } catch {
+        const screenshotBase64 = await browser.takeScreenshot();
+
+        if (screenshotBase64) {
+          const fs = require('fs') as typeof import('fs');
+          const path = require('path') as typeof import('path');
+          const safeTitle = testTitle.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+          const screenshotDir = 'reports/screenshots';
+          if (!fs.existsSync(screenshotDir)) fs.mkdirSync(screenshotDir, { recursive: true });
+          const filePath = path.join(screenshotDir, `${safeTitle}_${Date.now()}.png`);
+          fs.writeFileSync(filePath, Buffer.from(screenshotBase64, 'base64'));
+
+          // Anexa ao Allure como imagem inline
+          await browser.call(async () => {
+            const allure = require('@wdio/allure-reporter').default;
+            allure.addAttachment(
+              `Screenshot — ${testTitle}`,
+              Buffer.from(screenshotBase64, 'base64'),
+              'image/png',
+            );
+          });
+
+          console.error(`[afterTest] Screenshot salvo: ${filePath}`);
+        }
+      } catch (screenshotErr) {
+        console.error('[afterTest] Falha ao capturar screenshot:', screenshotErr);
+      }
+
+      try {
+        const errorMessage = error?.message ?? 'Erro desconhecido';
+        const errorStack = error?.stack ?? '';
+
+        await browser.call(async () => {
+          const allure = require('@wdio/allure-reporter').default;
+          allure.addAttachment(
+            `Error Log — ${testTitle}`,
+            `Mensagem: ${errorMessage}\n\nStack:\n${errorStack}`,
+            'text/plain',
+          );
+        });
+
+        console.error(`\n[afterTest] Falha em "${testTitle}": ${errorMessage}`);
+      } catch (logErr) {
+        console.error('[afterTest] Falha ao registrar log no Allure:', logErr);
       }
     }
   },
 
   onComplete(_exitCode, _config, _caps, results) {
-    const passed = results.passed ?? 0;
-    const failed = results.failed ?? 0;
-    console.log(`\nExecução finalizada — ${passed} passou(ram), ${failed} falhou(aram)`);
-    if (failed > 0) {
-      console.log('Relatório: yarn allure:generate && yarn allure:open');
-    }
-  }
+    const failed = results?.failed ?? 0;
+    const passed = results?.passed ?? 0;
+    const total = passed + failed;
+
+    console.log('\n════════════════════════════════════════════════');
+    console.log('  Suíte Mobile finalizada                       ');
+    console.log('════════════════════════════════════════════════');
+    console.log(`Passou : ${passed}`);
+    console.log(`Falhou : ${failed}`);
+    console.log(`Total  : ${total}`);
+    console.log('Execute o comando: [yarn test:mobile:allure] para acessar o relatório');
+    console.log('════════════════════════════════════════════════\n');
+  },
 };

@@ -32,7 +32,7 @@ export class LoginPage extends BasePage {
 
   async getErrorMessage(): Promise<string> {
     await this.waitForElement(LoginLocators.errorMessage);
-    return this.page.textContent(LoginLocators.errorMessage) ?? '';
+    return await this.page.textContent(LoginLocators.errorMessage) ?? '';
   }
 
   async isErrorVisible(): Promise<boolean> {

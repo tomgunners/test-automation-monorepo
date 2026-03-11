@@ -12,7 +12,7 @@ export class CartPage extends BasePage {
   }
 
   async getPageTitle(): Promise<string> {
-    return this.page.textContent(CartLocators.pageTitle) ?? '';
+    return await this.page.textContent(CartLocators.pageTitle) ?? '';
   }
 
   async getItemCount(): Promise<number> {

@@ -1,9 +1,9 @@
-import { sleep } from 'k6';
+import { sleep, check } from 'k6';
 import { Trend, Rate, Counter } from 'k6/metrics';
 import { htmlReport } from 'https://raw.githubusercontent.com/benc-uk/k6-reporter/main/dist/bundle.js';
 import { textSummary } from 'https://jslib.k6.io/k6-summary/0.0.1/index.js';
 import { ProductsClient } from '../utils/products.client.js';
-import { executionOptions } from '../config/options.js';
+import { executionOptions, BASE_URL } from '../config/options.js';
 
 // ─── Exporta opções de execução ───────────────────────────────────────────────
 export const options = executionOptions;
@@ -12,77 +12,166 @@ export const options = executionOptions;
 const listProductsTrend = new Trend('list_products_duration', true);
 const getByIdTrend = new Trend('get_product_by_id_duration', true);
 const searchTrend = new Trend('search_products_duration', true);
+const categoriesTrend = new Trend('get_categories_duration', true);
+
+// Taxa de erros de negócio — separada de http_req_failed (erro de rede/HTTP)
 const errorRate = new Rate('custom_error_rate');
-const requestCount = new Counter('total_requests');
+
+// Contadores por endpoint — mais rastreáveis que um único contador agregado
+const listProductsCount = new Counter('total_list_products_requests');
+const getByIdCount = new Counter('total_get_by_id_requests');
+const searchCount = new Counter('total_search_requests');
+const categoriesCount = new Counter('total_categories_requests');
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+/**
+ * sleep com jitter — distribui a pausa aleatoriamente entre [min, max].
+ * Evita que VUs acordem no mesmo milissegundo (ondas sincronizadas),
+ * tornando o perfil de carga mais próximo do comportamento humano real.
+ */
+function jitter(min, max) {
+  sleep(min + Math.random() * (max - min));
+}
+
+/**
+ * Registra a resposta de um endpoint nas métricas correspondentes.
+ * Centraliza trend + counter + check + errorRate que se repetiriam em cada bloco.
+ */
+function recordMetrics(response, trend, counter, checkLabel) {
+  trend.add(response.timings.duration);
+  counter.add(1);
+
+  const ok = check(response, {
+    [`${checkLabel} → status 200`]: (r) => r.status === 200,
+    [`${checkLabel} → body não vazio`]: (r) => r.body && r.body.length > 0,
+  });
+
+  errorRate.add(!ok);
+}
 
 /**
  * Setup: executado uma vez antes do início do teste.
  * Retorna dados compartilhados entre os VUs.
  */
 export function setup() {
-  console.log('Iniciando teste de performance — Products API');
-  console.log(`Base URL: ${__ENV.BASE_URL || 'https://dummyjson.com'}`);
-  return { startTime: new Date().toISOString() };
+  // ── Detecta o modo de execução para exibir no log ─────────────────────────
+  const vus = parseInt(__ENV.VUS, 10);
+  const duration = __ENV.DURATION;
+  const isCustom = !isNaN(vus) && duration;
+
+  const profileLabel = isCustom
+    ? `CUSTOM (VUS=${vus} DURATION=${duration})`
+    : (__ENV.STAGES_PROFILE || 'load').toUpperCase();
+
+  console.log('════════════════════════════════════════════════');
+  console.log('  Teste de Performance — Products API (k6)      ');
+  console.log('════════════════════════════════════════════════');
+  console.log(`  Perfil   : ${profileLabel}`);
+  console.log(`  Base URL : ${BASE_URL}`);
+  console.log(`  Início   : ${new Date().toISOString()}`);
+  console.log('════════════════════════════════════════════════');
+
+  // ── Verificação rapida da API ───────────────────────────────────────────────────────────
+  const probe = ProductsClient.getAll(1, 0);
+  if (probe.status !== 200) {
+    throw new Error(
+      `[setup] API indisponível antes do teste. Status: ${probe.status}. Abortando.`
+    );
+  }
+
+  console.log('Smoke check: API OK');
+
+  return {
+    startTime: new Date().toISOString(),
+    baseUrl: BASE_URL,
+    profile: profileLabel,
+  };
 }
 
-/**
- * Função principal — executada por cada VU a cada iteração.
- * Simula um usuário navegando pela lista de produtos.
- */
+// ─── Função principal — executada por cada VU a cada iteração ────────────────
+//
+//  Fluxo simulado (jornada de usuário navegando produtos):
+//    1. Lista produtos       → sempre        (comportamento mais frequente)
+//    2. Busca produto por ID → sempre        (detalhe de item)
+//    3. Busca por termo      → 50% iterações (comportamento de busca)
+//    4. Lista categorias     → 20% iterações (navegação por categoria)
+//
+//  Cada etapa tem pausa com jitter para simular tempo de leitura/interação
+//  e evitar ondas sincronizadas com 500 VUs concorrentes.
+// ─────────────────────────────────────────────────────────────────────────────
 export default function () {
-  // Cenário 1: Listar produtos (comportamento mais frequente)
+
+  // ── 1. Listar produtos ─────────────────────────────────────────────────────
   const listResponse = ProductsClient.getAll(10, 0);
-  listProductsTrend.add(listResponse.timings.duration);
-  errorRate.add(listResponse.status !== 200);
-  requestCount.add(1);
+  recordMetrics(listResponse, listProductsTrend, listProductsCount, 'GET /products');
 
-  sleep(1); // Pausa de 1s simulando comportamento humano
+  jitter(0.8, 1.5); // simula tempo de leitura da listagem
 
-  // Cenário 2: Buscar produto por ID aleatório (1-100)
+  // ── 2. Buscar produto por ID aleatório ─────────────────────────────────────
+  //  Math.random() por VU garante IDs diferentes entre VUs concorrentes,
+  //  evitando que todos atinjam o mesmo objeto em cache.
   const randomId = Math.floor(Math.random() * 100) + 1;
   const getByIdResponse = ProductsClient.getById(randomId);
-  getByIdTrend.add(getByIdResponse.timings.duration);
-  errorRate.add(getByIdResponse.status !== 200);
-  requestCount.add(1);
+  recordMetrics(getByIdResponse, getByIdTrend, getByIdCount, `GET /products/${randomId}`);
 
-  sleep(0.5);
+  jitter(0.3, 0.8); // simula tempo de visualização do detalhe
 
-  // Cenário 3: Buscar por termo de pesquisa (50% dos VUs)
+  // ── 3. Busca por termo — 50% das iterações ─────────────────────────────────
   if (Math.random() < 0.5) {
     const searchTerms = ['phone', 'laptop', 'shirt', 'watch', 'bag'];
     const term = searchTerms[Math.floor(Math.random() * searchTerms.length)];
     const searchResponse = ProductsClient.search(term);
-    searchTrend.add(searchResponse.timings.duration);
-    errorRate.add(searchResponse.status !== 200);
-    requestCount.add(1);
+    recordMetrics(searchResponse, searchTrend, searchCount, `GET /products/search?q=${term}`);
 
-    sleep(0.5);
+    jitter(0.3, 0.7);
   }
 
-  // Cenário 4: Listar categorias (20% dos VUs)
+  // ── 4. Listar categorias — 20% das iterações ───────────────────────────────
   if (Math.random() < 0.2) {
     const categoriesResponse = ProductsClient.getCategories();
-    errorRate.add(categoriesResponse.status !== 200);
-    requestCount.add(1);
+    recordMetrics(categoriesResponse, categoriesTrend, categoriesCount, 'GET /products/categories');
+
+    jitter(0.2, 0.5);
   }
 }
 
+// ─── Teardown ─────────────────────────────────────────────────────────────────
 /**
- * Teardown: executado uma vez após o final do teste.
+ * Executado UMA vez após todos os VUs finalizarem.
+ * Recebe os dados retornados pelo setup() via parâmetro data.
  */
 export function teardown(data) {
-  console.log('Suíte de testes de Performance finalizada.');
-  console.log(`Início      : ${data.startTime}`);
-  console.log('Execute o comando: [yarn test:perf:report] para acessar o relatório');
+  console.log('\n════════════════════════════════════════════════');
+  console.log('  Execução finalizada                           ');
+  console.log('════════════════════════════════════════════════');
+  console.log(`  Perfil  : ${data.profile}`);
+  console.log(`  Início  : ${data.startTime}`);
+  console.log(`  Fim     : ${new Date().toISOString()}`);
+  console.log(`  API     : ${data.baseUrl}`);
+  console.log('');
+  console.log('  Endpoints monitorados:');
+  console.log('    • GET /products            (list_products_duration)');
+  console.log('    • GET /products/:id        (get_product_by_id_duration)');
+  console.log('    • GET /products/search     (search_products_duration)');
+  console.log('    • GET /products/categories (get_categories_duration)');
+  console.log('');
+  console.log('  Consulte o relatório para análise de gargalos:');
+  console.log('    yarn test:perf:report  → sumário no terminal');
+  console.log('    results/report.html    → relatório visual completo');
+  console.log('════════════════════════════════════════════════\n');
 }
 
+// ─── handleSummary ────────────────────────────────────────────────────────────
+
 /**
- * handleSummary: gera relatórios em HTML e texto ao final do teste.
+ * Gera os artefatos de relatório ao final do teste.
+ * Executado pelo k6 após o teardown, recebendo todas as métricas coletadas.
  */
 export function handleSummary(data) {
   return {
     'results/report.html': htmlReport(data),
-    stdout: textSummary(data, { indent: ' ', enableColors: true }),
-    'results/summary.json': JSON.stringify(data, null, 2)
+    'results/summary.json': JSON.stringify(data, null, 2),
+    stdout: textSummary(data, { indent: '  ', enableColors: true }),
   };
 }

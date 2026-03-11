@@ -15,7 +15,7 @@ export class InventoryPage extends BasePage {
   }
 
   async getPageTitle(): Promise<string> {
-    return this.page.textContent(InventoryLocators.pageTitle) ?? '';
+    return await this.page.textContent(InventoryLocators.pageTitle) ?? '';
   }
 
   async addProductToCart(productName: string): Promise<void> {
