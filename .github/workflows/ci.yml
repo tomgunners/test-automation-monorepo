@@ -131,7 +131,7 @@ jobs:
         if: matrix.suite == 'web'
         run: npm install -g allure-commandline
 
-      # ─── Executar testes ─────────────────────────────────────────────────────
+# ─── Executar testes ─────────────────────────────────────────────────────
       - name: Executar testes
         if: >
           github.event.inputs.test_suite == matrix.suite ||
@@ -147,7 +147,7 @@ jobs:
               yarn workspace performance-tests test:gate
             fi
           else
-            yarn workspace ${{ matrix.path }} ${{ matrix.script }}
+            yarn ${{ matrix.script }}
           fi
         env:
           BASE_URL: https://www.saucedemo.com
