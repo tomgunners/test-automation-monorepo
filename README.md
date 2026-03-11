@@ -34,10 +34,12 @@ test-automation-monorepo/
 │   ├── package.json
 │   └── tsconfig.json
 ├── performance-tests/              # Testes de Performance com k6
+│   ├── scripts/                    # k6-runner.js (cross-platform runner)
 │   ├── src/
 │   │   ├── config/                 # Perfis de carga: load | spike | soak
 │   │   ├── scenarios/              # Scripts de teste k6
 │   │   └── utils/                  # Clients HTTP + gerador de relatório
+│   ├── .env                        # Variáveis de ambiente do k6
 │   └── package.json
 ├── mobile-tests/                   # Testes Mobile com WebdriverIO + Appium 2
 │   ├── apps/                       # APK do app sob teste
@@ -54,6 +56,7 @@ test-automation-monorepo/
 │   ├── package.json
 │   └── tsconfig.json
 ├── package.json                    # Raiz do monorepo (Yarn Workspaces)
+├── .gitattributes                  # Padronização de line endings (LF)
 ├── .gitignore
 └── README.md
 ```
@@ -109,8 +112,8 @@ yarn install
 
 | Valor | Comportamento |
 |-------|---------------|
-| `HEADLESS=true`  | Browser sem janela
-| `HEADLESS=false` | Browser visível 
+| `HEADLESS=true`  | Browser sem janela (padrão — recomendado para CI) |
+| `HEADLESS=false` | Browser visível (debug local) |
 
 ### Tags disponíveis nos cenários
 
@@ -132,9 +135,6 @@ yarn test:web:smoke
 # Regressão completa
 yarn test:web:regression
 
-# Com browser visível (debug)
-yarn test:web:headed
-
 # Ou passando tag diretamente:
 cd web-tests && npx cucumber-js --tags "@smoke"
 cd web-tests && npx cucumber-js --tags "@regression and not @wip"
@@ -149,7 +149,7 @@ yarn test:web:allure    # Gera e abre relatório Allure
 | Variável            | Padrão                      | Descrição               |
 |---------------------|-----------------------------|-------------------------|
 | `BASE_URL`          | `https://www.saucedemo.com` | URL base da aplicação   |
-| `HEADLESS`          | `true`                      | `true` = sem janela     |
+| `HEADLESS`          | `false`                     | `true` = sem janela     |
 | `BROWSER`           | `chromium`                  | chromium / firefox / webkit |
 | `SLOW_MO`           | `0`                         | Delay entre ações (ms)  |
 | `DEFAULT_TIMEOUT`   | `10000`                     | Timeout padrão (ms)     |
@@ -220,56 +220,72 @@ yarn test:api:report    # Abre relatório Mochawesome
 
 | Perfil  | Descrição | VUs máx | Duração |
 |---------|-----------|---------|---------|
-| `load`  | Rampa gradual — tráfego normal | 25 VUs | ~3 min |
-| `spike` | Pico repentino — burst de tráfego | 100 VUs | ~1,5 min |
-| `soak`  | Endurance — detecta degradação longa | 15 VUs | ~10 min |
+| `load`  | Rampa gradual — tráfego normal sustentado | 500 VUs | ~6m30s |
+| `spike` | Pico repentino — burst de tráfego (2× o load) | 1000 VUs | ~2m |
+| `soak`  | Endurance — detecta degradação e memory leak | 200 VUs | ~32m |
 
 ### Modos de execução
 
 | Modo | Script | Comportamento no CI |
 |------|--------|---------------------|
-| `gate`        | `test:perf:gate`        | Quebra o pipeline se thresholds falharem |
-| `informative` | `test:perf:informative` | Apenas reporta, nunca quebra o pipeline  |
+| `gate`        | `test:gate`        | Quebra o pipeline se thresholds falharem |
+| `informative` | `test:informative` | Apenas reporta, nunca quebra o pipeline  |
 
 ### Executar testes
 
 ```bash
 # Modo gate com perfil load (padrão — quebra se thresholds falharem)
-yarn test:perf
+yarn test:gate
 
 # Modo informativo (nunca quebra o pipeline)
-yarn test:perf:informative
+yarn test:informative
 
 # Perfis específicos
-yarn test:perf:spike   # Teste de pico
-yarn test:perf:soak    # Teste de endurance
+yarn test:spike   # Teste de pico
+yarn test:soak    # Teste de endurance
 
 # Com variáveis customizadas
 cd performance-tests
-STAGES_PROFILE=spike k6 run src/scenarios/products.test.js
-VUS=50 DURATION=2m k6 run src/scenarios/products.test.js
+VUS=50 DURATION=2m node scripts/k6-runner.js src/scenarios/products.test.js
 
 # Relatório do último resultado
-yarn test:perf:report
+yarn test:report
 ```
 
-### Variáveis de ambiente (k6)
+### Variáveis de ambiente (`performance-tests/.env`)
 
-| Variável         | Padrão   | Descrição |
-|------------------|----------|-----------|
-| `BASE_URL`       | `https://dummyjson.com` | URL alvo |
-| `STAGES_PROFILE` | `load`   | Perfil: `load` \| `spike` \| `soak` |
-| `VUS`            | —        | VUs custom (sobrescreve o perfil) |
-| `DURATION`       | —        | Duração custom, ex.: `5m` (sobrescreve o perfil) |
+| Variável                  | Padrão                  | Descrição |
+|---------------------------|-------------------------|-----------|
+| `BASE_URL`                | `https://dummyjson.com` | URL alvo |
+| `STAGES_PROFILE`          | `load`                  | Perfil: `load` \| `spike` \| `soak` |
+| `VUS`                     | —                       | VUs custom (sobrescreve o perfil) |
+| `DURATION`                | —                       | Duração custom, ex.: `2m` (sobrescreve o perfil) |
+| `LOAD_MAX_VUS`            | `500`                   | VUs máximos do perfil load |
+| `LOAD_RAMPUP_DURATION`    | `1m`                    | Duração do ramp-up (load) |
+| `LOAD_SUSTAIN_DURATION`   | `5m`                    | Duração da carga plena (load) |
+| `LOAD_RAMPDOWN_DURATION`  | `30s`                   | Duração do ramp-down (load) |
+| `SPIKE_BASELINE_VUS`      | `50`                    | VUs baseline (spike) |
+| `SPIKE_PEAK_VUS`          | `1000`                  | VUs no pico (spike) |
+| `SPIKE_BASELINE_DURATION` | `30s`                   | Duração baseline (spike) |
+| `SPIKE_PEAK_DURATION`     | `30s`                   | Duração do pico (spike) |
+| `SPIKE_RECOVERY_DURATION` | `30s`                   | Duração da recuperação (spike) |
+| `SOAK_MAX_VUS`            | `200`                   | VUs máximos (soak) |
+| `SOAK_RAMPUP_DURATION`    | `2m`                    | Duração do ramp-up (soak) |
+| `SOAK_SUSTAIN_DURATION`   | `28m`                   | Duração da carga sustentada (soak) |
+| `SOAK_RAMPDOWN_DURATION`  | `2m`                    | Duração do ramp-down (soak) |
 
 ### Thresholds (SLA)
 
-| Métrica                    | Threshold  |
-|----------------------------|------------|
-| `http_req_duration p(95)`  | `< 2000ms` |
-| `http_req_duration p(99)`  | `< 5000ms` |
-| `http_req_failed`          | `< 5%`     |
-| `http_reqs` (throughput)   | `> 10 req/s` |
+| Métrica                         | Threshold    |
+|---------------------------------|--------------|
+| `http_req_duration p(95)`       | `< 2000ms`   |
+| `http_req_duration p(99)`       | `< 5000ms`   |
+| `http_req_failed`               | `< 2%`       |
+| `http_reqs` (throughput)        | `> 100 req/s`|
+| `list_products_duration p(95)`  | `< 1500ms`   |
+| `get_product_by_id_duration p(95)` | `< 1500ms` |
+| `search_products_duration p(95)`| `< 2000ms`   |
+| `get_categories_duration p(95)` | `< 1500ms`   |
 
 ---
 
@@ -336,7 +352,7 @@ yarn test:web:allure         # Allure (gera + abre)
 yarn test:api:report         # Mochawesome HTML
 
 # Performance
-yarn test:perf:report        # Sumário k6 no terminal + HTML em results/
+yarn test:report             # Sumário k6 no terminal + HTML em results/
 
 # Mobile
 yarn test:mobile:allure      # Allure (gera + abre)
@@ -389,12 +405,11 @@ Pipeline em `.github/workflows/ci.yml` para GitHub Actions.
 
 ### Jobs
 
-| Job                        | Artefatos gerados |
-|----------------------------|-------------------|
-| API Tests                  | Relatório Mochawesome |
-| Web Tests (smoke)          | Allure Report + Cucumber HTML |
-| Web Tests (regression)     | Allure Report + Cucumber HTML |
-| Performance Tests          | HTML + JSON do k6 |
+| Job                    | Artefatos gerados |
+|------------------------|-------------------|
+| API Tests              | Relatório Mochawesome |
+| Web Tests (regression) | Allure Report + Cucumber HTML |
+| Performance Tests      | HTML + JSON do k6 |
 
 ### Configuração de HEADLESS no CI
 
@@ -408,16 +423,22 @@ O CI define `HEADLESS: 'true'`, o que faz o browser rodar sem janela — comport
 `HEADLESS=true` → browser sem janela. `HEADLESS=false` → browser visível. A variável é lida diretamente por `process.env.HEADLESS === 'true'` sem nenhuma negação no código.
 
 ### Browser reutilizado entre cenários (Web)
-O browser é lançado uma única vez no `BeforeAll` e fechado no `AfterAll`. Cada cenário cria um `context` isolado com sua própria `page`. Isso reduz o tempo total da suíte e mantém isolamento completo entre os cenários.
+O browser é lançado uma única vez no `BeforeAll` e fechado no `AfterAll`. Cada cenário cria uma nova `page` dentro do mesmo contexto, com localStorage e cookies limpos no `After`. Isso reduz o tempo total da suíte e mantém isolamento completo entre os cenários.
 
 ### Tags @smoke / @regression (Web)
 Cenários críticos recebem `@smoke` — executados em todo push para validação rápida. Cenários de cobertura completa recebem `@regression` — executados antes de releases.
 
 ### Dois modos de performance no CI
-`test:perf:gate` quebra o pipeline quando thresholds de SLA falham — comportamento de quality gate real. `test:perf:informative` usa `--no-thresholds` e nunca quebra — ideal para monitoramento contínuo ou ambientes instáveis.
+`test:gate` quebra o pipeline quando thresholds de SLA falham — comportamento de quality gate real. `test:informative` usa `--no-thresholds` e nunca quebra — padrão no CI para monitoramento contínuo sem bloquear o pipeline.
+
+### k6-runner.js cross-platform
+O k6 não lê `process.env` nem suporta `--env-file`. O `k6-runner.js` lê o `.env`, injeta as variáveis como `--env KEY=VALUE` e executa o k6. Variáveis definidas via `cross-env` no `package.json` têm prioridade sobre o `.env`, permitindo que `yarn test:spike` sobrescreva `STAGES_PROFILE` corretamente.
 
 ### Perfis de carga k6 (load / spike / soak)
-Cada perfil usa `scenarios` com `executor: ramping-vus`, refletindo padrões profissionais de carga. O perfil é selecionável via `STAGES_PROFILE` ou sobrescrito com `VUS` + `DURATION` para execuções ad-hoc.
+Cada perfil usa `scenarios` com `executor: ramping-vus`. Os valores de VUs e duração são configuráveis via `.env` sem alterar o código. O perfil é selecionável via `STAGES_PROFILE` ou sobrescrito com `VUS` + `DURATION` para execuções ad-hoc.
+
+### abortOnFail nos thresholds
+Todos os thresholds têm `abortOnFail: true` e `delayAbortEval: '30s'`. O delay evita falso positivo durante o ramp-up; o abort garante que o k6 encerra imediatamente com exit code 99 ao detectar violação de SLA, quebrando o pipeline de forma inequívoca no modo gate.
 
 ### Page Object + Locators separados
 Seletores ficam em arquivos `*.locators.ts` independentes. Atualizar um seletor não exige tocar na lógica da Page/Screen.
