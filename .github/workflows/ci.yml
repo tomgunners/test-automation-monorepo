@@ -17,14 +17,31 @@ on:
           - web
           - api
           - performance
+      web_profile:
+        description: 'Projeto Web E2E'
+        required: false
+        default: 'default'
+        type: choice
+        options:
+          - default
+          - regression
       perf_mode:
         description: 'Modo de performance'
         required: false
-        default: 'informative'
+        default: 'gate'
         type: choice
         options:
           - gate        # quebra o pipeline se os thresholds falharem
           - informative # apenas reporta, nunca quebra
+      perf_profile:
+        description: 'Projeto K6 Performance'
+        required: false
+        default: 'load'
+        type: choice
+        options:
+          - load
+          - spike
+          - soak
 
 env:
   NODE_VERSION: '20'
@@ -51,13 +68,14 @@ jobs:
           - name: Performance Tests
             suite: performance
             path: performance-tests
+            script: test:perf
 
     steps:
       # ─── Checkout ──────────────────────────────────────────────────────────
       - name: Checkout
         uses: actions/checkout@v4
 
-      # ─── Setup Node.js ─────────────────────────────────────────────────────
+      # ─── Setup Node.js ──────────────────────────────────────────────────────
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -76,12 +94,12 @@ jobs:
           restore-keys: |
             ${{ matrix.suite }}-node-modules-${{ runner.os }}-
 
-      # ─── Instalar dependências ──────────────────────────────────────────────
+      # ─── Instalar dependências ───────────────────────────────────────────────
       - name: Instalar dependências
         if: steps.cache-node-modules.outputs.cache-hit != 'true'
         run: yarn install --frozen-lockfile
 
-      # ─── Instalar k6 (apenas performance) ──────────────────────────────────
+      # ─── Instalar k6 (apenas performance) ───────────────────────────────────
       - name: Instalar k6
         if: matrix.suite == 'performance'
         run: |
@@ -92,7 +110,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y k6
 
-      # ─── Cache Playwright browsers (apenas web) ─────────────────────────────
+      # ─── Cache Playwright browsers (apenas web) ──────────────────────────────
       - name: Cache Playwright browsers
         if: matrix.suite == 'web'
         uses: actions/cache@v4
@@ -103,17 +121,17 @@ jobs:
           restore-keys: |
             playwright-${{ runner.os }}-
 
-      # ─── Instalar browsers do Playwright (apenas web) ───────────────────────
+      # ─── Instalar browsers do Playwright (apenas web) ────────────────────────
       - name: Instalar Playwright browsers
         if: matrix.suite == 'web' && steps.cache-playwright.outputs.cache-hit != 'true'
         run: npx playwright install --with-deps chromium
 
-      # ─── Instalar Allure CLI (apenas web) ───────────────────────────────────
+      # ─── Instalar Allure CLI (apenas web) ────────────────────────────────────
       - name: Instalar Allure CLI
         if: matrix.suite == 'web'
         run: npm install -g allure-commandline
 
-      # ─── Executar testes ────────────────────────────────────────────────────
+# ─── Executar testes ─────────────────────────────────────────────────────
       - name: Executar testes
         if: >
           github.event.inputs.test_suite == matrix.suite ||
@@ -121,11 +139,12 @@ jobs:
           github.event_name != 'workflow_dispatch'
         run: |
           if [ "${{ matrix.suite }}" = "performance" ]; then
+            export BASE_URL=https://dummyjson.com
             MODE="${{ github.event.inputs.perf_mode || 'informative' }}"
-            if [ "$MODE" = "gate" ]; then
-              yarn workspace performance-tests test:gate
+            if [ "$MODE" = "informative" ]; then
+              yarn workspace performance-tests test:informative
             else
-              yarn workspace performance-tests test:ci
+              yarn workspace performance-tests test:gate
             fi
           else
             yarn ${{ matrix.script }}
@@ -135,8 +154,9 @@ jobs:
           HEADLESS: 'true'
           BROWSER: chromium
           API_BASE_URL: https://dummyjson.com
+          STAGES_PROFILE: ${{ github.event.inputs.perf_profile || 'load' }}
 
-      # ─── Gerar relatório Allure (apenas web) ────────────────────────────────
+      # ─── Gerar relatório Allure (apenas web) ─────────────────────────────────
       - name: Gerar relatório Allure
         if: always() && matrix.suite == 'web'
         run: yarn workspace web-tests run allure:generate
@@ -156,7 +176,7 @@ jobs:
           if-no-files-found: warn
           retention-days: 30
 
-  # ─── Publish Allure Report no GitHub Pages ──────────────────────────────────
+  # ─── Publish Allure Report no GitHub Pages ───────────────────────────────────
   publish-allure:
     name: Publish Allure Report
     runs-on: ubuntu-latest
