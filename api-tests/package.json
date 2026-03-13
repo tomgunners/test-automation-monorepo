@@ -6,7 +6,7 @@
   "scripts": {
     "test": "mocha --require ts-node/register --require tsconfig-paths/register --require src/config/setup.ts 'src/tests/**/*.test.ts' --reporter mochawesome --reporter-options reportDir=reports,reportFilename=api-report,quiet=false",
     "test:watch": "mocha --require ts-node/register --require tsconfig-paths/register --require src/config/setup.ts 'src/tests/**/*.test.ts' --watch",
-    "test:report": "start \"\" reports/api-report.html",
+    "test:report": "npx open-cli reports/api-report.html",
     "clean": "rm -rf reports dist",
     "lint": "eslint src --ext .ts",
     "typecheck": "tsc --noEmit"
@@ -26,6 +26,7 @@
     "@typescript-eslint/eslint-plugin": "^7.3.1",
     "@typescript-eslint/parser": "^7.3.1",
     "eslint": "^8.57.0",
+    "open-cli": "^8.0.0",
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",
     "typescript": "^5.3.3"

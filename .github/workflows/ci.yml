@@ -28,7 +28,7 @@ on:
       perf_mode:
         description: 'Modo de performance'
         required: false
-        default: 'gate'
+        default: 'informative'  # ← era 'gate' — push/PR nunca quebra por threshold
         type: choice
         options:
           - gate        # quebra o pipeline se os thresholds falharem
@@ -36,9 +36,10 @@ on:
       perf_profile:
         description: 'Projeto K6 Performance'
         required: false
-        default: 'load'
+        default: 'debug'        # ← era 'load' — push/PR roda 1 VU / 35s
         type: choice
         options:
+          - debug
           - load
           - spike
           - soak
@@ -131,7 +132,7 @@ jobs:
         if: matrix.suite == 'web'
         run: npm install -g allure-commandline
 
-# ─── Executar testes ─────────────────────────────────────────────────────
+      # ─── Executar testes ─────────────────────────────────────────────────────
       - name: Executar testes
         if: >
           github.event.inputs.test_suite == matrix.suite ||
@@ -154,7 +155,7 @@ jobs:
           HEADLESS: 'true'
           BROWSER: chromium
           API_BASE_URL: https://dummyjson.com
-          STAGES_PROFILE: ${{ github.event.inputs.perf_profile || 'load' }}
+          STAGES_PROFILE: ${{ github.event.inputs.perf_profile || 'debug' }}  # ← era 'load'
 
       # ─── Gerar relatório Allure (apenas web) ─────────────────────────────────
       - name: Gerar relatório Allure

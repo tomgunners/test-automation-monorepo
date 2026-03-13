@@ -5,7 +5,7 @@ import { CustomWorld } from '../hooks/world';
 // ─── Given ────────────────────────────────────────────────────────────────────
 
 Given('que estou na página de login', async function (this: CustomWorld) {
-  await this.loginPage!.navigateTo();
+await this.login.navigateTo();
 });
 
 // ─── When ─────────────────────────────────────────────────────────────────────
@@ -13,19 +13,19 @@ Given('que estou na página de login', async function (this: CustomWorld) {
 When(
   'informo o usuário {string} e a senha {string}',
   async function (this: CustomWorld, username: string, password: string) {
-    await this.loginPage!.fillUsername(username);
-    await this.loginPage!.fillPassword(password);
+    await this.login.fillUsername(username);
+    await this.login.fillPassword(password);
   }
 );
 
 When('clico no botão de login', async function (this: CustomWorld) {
-  await this.loginPage!.clickLoginButton();
+  await this.login.clickLoginButton();
 });
 
 // ─── Then ─────────────────────────────────────────────────────────────────────
 
 Then('devo ser redirecionado para a página de inventário', async function (this: CustomWorld) {
-  await this.inventoryPage!.waitForPageLoad();
+  await this.inventory.waitForPageLoad();
   const url = this.page!.url();
   expect(url).toContain('/inventory.html');
 });
@@ -33,7 +33,7 @@ Then('devo ser redirecionado para a página de inventário', async function (thi
 Then(
   'o título da página deve ser {string}',
   async function (this: CustomWorld, expectedTitle: string) {
-    const title = await this.inventoryPage!.getPageTitle();
+    const title = await this.inventory.getPageTitle();
     expect(title.trim()).toBe(expectedTitle);
   }
 );
@@ -41,7 +41,7 @@ Then(
 Then(
   'devo ver uma mensagem de erro de credenciais inválidas',
   async function (this: CustomWorld) {
-    const errorMessage = await this.loginPage!.getErrorMessage();
+    const errorMessage = await this.login.getErrorMessage();
     expect(errorMessage).toContain('Username and password do not match');
     this.lastErrorMessage = errorMessage;
   }
@@ -55,7 +55,7 @@ Then('permaneço na página de login', async function (this: CustomWorld) {
 Then(
   'devo ver uma mensagem informando que o usuário está bloqueado',
   async function (this: CustomWorld) {
-    const errorMessage = await this.loginPage!.getErrorMessage();
+    const errorMessage = await this.login.getErrorMessage();
     expect(errorMessage).toContain('Sorry, this user has been locked out');
     this.lastErrorMessage = errorMessage;
   }

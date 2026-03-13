@@ -14,10 +14,14 @@
  * Ou passando a tag diretamente:
  *   cd web-tests && npx cucumber-js --tags "@smoke"
  *   cd web-tests && npx cucumber-js --tags "@regression and not @wip"
+ *
+ * Nota: o formatter `verbose` foi removido no @cucumber/cucumber v10.
+ * Usando `progress` (steps em tempo real) + `summary` (resultado completo ao final).
  */
 
 const BASE_FORMAT = [
-  'progress-bar',
+  'progress',
+  'summary',
   'html:test-results/cucumber-report.html',
   'json:test-results/cucumber-report.json',
   'allure-cucumberjs/reporter',
@@ -31,7 +35,7 @@ const BASE_REQUIRES = {
   requireModule: ['ts-node/register'],
   format: BASE_FORMAT,
   formatOptions: BASE_FORMAT_OPTIONS,
-  publish: true,
+  publish: false,
 };
 
 module.exports = {

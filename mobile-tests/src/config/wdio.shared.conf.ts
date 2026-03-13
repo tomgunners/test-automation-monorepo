@@ -14,7 +14,6 @@ export const sharedConfig: Partial<Options.Testrunner> = {
   exclude: [],
 
   // ── Paralelismo ────────────────────────────────────────────────────────────
-  // 1 instância para testes locais com emulador/simulador único
   maxInstances: 1,
 
   // ── Framework ──────────────────────────────────────────────────────────────
@@ -26,13 +25,11 @@ export const sharedConfig: Partial<Options.Testrunner> = {
 
   // ── Reporters ──────────────────────────────────────────────────────────────
   reporters: [
-    // Saída no terminal durante a execução
     ['spec', {
       addConsoleLogs: true,
       realtimeReporting: true,
       color: true
     }],
-    // Relatório Allure (gere com: yarn allure:generate)
     ['allure', {
       outputDir: 'allure-results',
       disableWebdriverStepsReporting: false,
@@ -45,15 +42,18 @@ export const sharedConfig: Partial<Options.Testrunner> = {
 
   /**
    * Executado uma vez antes de todas as sessões.
-   * Cria os diretórios de saída necessários.
+   * Limpa allure-results para evitar contaminação de execuções anteriores
+   * e recria os diretórios de saída necessários.
    */
   onPrepare() {
     const fs = require('fs') as typeof import('fs');
 
+    // Limpa allure-results — mesmo padrão do web-tests
     if (fs.existsSync('allure-results')) {
       fs.rmSync('allure-results', { recursive: true, force: true });
     }
 
+    // Recria os diretórios necessários
     for (const dir of ['reports/screenshots', 'allure-results']) {
       if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
     }
@@ -76,11 +76,16 @@ export const sharedConfig: Partial<Options.Testrunner> = {
         const screenshotBase64 = await browser.takeScreenshot();
 
         if (screenshotBase64) {
-          const fs = require('fs') as typeof import('fs');
+          const fs   = require('fs')   as typeof import('fs');
           const path = require('path') as typeof import('path');
-          const safeTitle = testTitle.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+
+          const safeTitle     = testTitle.replace(/[^a-z0-9]/gi, '_').toLowerCase();
           const screenshotDir = 'reports/screenshots';
-          if (!fs.existsSync(screenshotDir)) fs.mkdirSync(screenshotDir, { recursive: true });
+
+          if (!fs.existsSync(screenshotDir)) {
+            fs.mkdirSync(screenshotDir, { recursive: true });
+          }
+
           const filePath = path.join(screenshotDir, `${safeTitle}_${Date.now()}.png`);
           fs.writeFileSync(filePath, Buffer.from(screenshotBase64, 'base64'));
 
@@ -90,7 +95,7 @@ export const sharedConfig: Partial<Options.Testrunner> = {
             allure.addAttachment(
               `Screenshot — ${testTitle}`,
               Buffer.from(screenshotBase64, 'base64'),
-              'image/png',
+              'image/png'
             );
           });
 
@@ -100,16 +105,17 @@ export const sharedConfig: Partial<Options.Testrunner> = {
         console.error('[afterTest] Falha ao capturar screenshot:', screenshotErr);
       }
 
+      // ── Error Log ─────────────────────────────────────────────────────────
       try {
         const errorMessage = error?.message ?? 'Erro desconhecido';
-        const errorStack = error?.stack ?? '';
+        const errorStack   = error?.stack   ?? '';
 
         await browser.call(async () => {
           const allure = require('@wdio/allure-reporter').default;
           allure.addAttachment(
             `Error Log — ${testTitle}`,
             `Mensagem: ${errorMessage}\n\nStack:\n${errorStack}`,
-            'text/plain',
+            'text/plain'
           );
         });
 
@@ -123,7 +129,7 @@ export const sharedConfig: Partial<Options.Testrunner> = {
   onComplete(_exitCode, _config, _caps, results) {
     const failed = results?.failed ?? 0;
     const passed = results?.passed ?? 0;
-    const total = passed + failed;
+    const total  = passed + failed;
 
     console.log('\n════════════════════════════════════════════════');
     console.log('  Suíte Mobile finalizada                       ');
@@ -133,5 +139,5 @@ export const sharedConfig: Partial<Options.Testrunner> = {
     console.log(`Total  : ${total}`);
     console.log('Execute o comando: [yarn test:mobile:allure] para acessar o relatório');
     console.log('════════════════════════════════════════════════\n');
-  },
+  }
 };

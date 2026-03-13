@@ -23,8 +23,9 @@ export const UserSchema = {
     expect(response).to.have.property('limit').that.is.a('number');
     expect(response.users.length).to.be.greaterThan(0);
 
-  // Valida o primeiro usuário da lista
-    UserSchema.validateUser(response.users[0]);
+    // Valida amostra dos primeiros 3 usuários — evita falso positivo
+    // quando apenas o primeiro item está válido e os demais corrompidos
+    response.users.slice(0, 3).forEach(user => UserSchema.validateUser(user));
   },
 
   //Valida que o email está em formato válido.

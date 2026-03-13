@@ -3,8 +3,14 @@ import * as fs from 'fs';
 
 // ── Credenciais ───────────────────────────────────────────────────────────────
 export const USERS = {
-  standard: { username: 'bob@example.com',     password: '10203040' } as UserCredentials,
-  invalid:  { username: 'aaaaaaaaaaaaaaa',     password: 'senhaerrada' } as UserCredentials,
+  standard: {
+    username: process.env.STANDARD_USER ?? 'bob@example.com',
+    password: process.env.STANDARD_PASSWORD ?? '10203040'
+  } as UserCredentials,
+  invalid: {
+    username: process.env.INVALID_USER ?? 'aaaaaaaaaaaaaaa',
+    password: process.env.INVALID_PASSWORD ?? 'senhaerrada'
+  } as UserCredentials
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
