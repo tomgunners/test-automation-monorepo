@@ -30,12 +30,12 @@ const BASE_FORMAT = [
 const BASE_FORMAT_OPTIONS = { resultsDir: 'allure-results' };
 
 const BASE_REQUIRES = {
-  paths: ['src/features/**/*.feature'],
-  require: ['src/hooks/**/*.ts', 'src/steps/**/*.ts'],
-  requireModule: ['ts-node/register'],
+  paths: ['src/features/*.feature'],
+  require: ['src/hooks/*.ts', 'src/steps/*.ts'],
+  requireModule: ["ts-node/register"],
   format: BASE_FORMAT,
   formatOptions: BASE_FORMAT_OPTIONS,
-  publish: false,
+  publish: true,
 };
 
 module.exports = {

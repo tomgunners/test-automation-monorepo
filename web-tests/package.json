@@ -5,12 +5,12 @@
   "private": true,
   "scripts": {
     "test": "cucumber-js --profile default",
-    "test:smoke": "cross-env cucumber-js --profile smoke",
-    "test:regression": "cross-env cucumber-js --profile regression",
+    "test:smoke": "cucumber-js --profile smoke",
+    "test:regression": "cucumber-js --profile regression",
     "report:cucumber": "node -e \"const {execSync}=require('child_process');try{execSync('open test-results/cucumber-report.html')}catch{execSync('start test-results/cucumber-report.html')}\"",
     "allure:generate": "allure generate allure-results -o allure-report --clean",
     "report:allure": "allure generate allure-results -o allure-report --clean && allure open allure-report",
-    "clean": "rimraf allure-results allure-report test-results",
+    "clean": "rimraf test-results allure-results allure-report && mkdir test-results && mkdir allure-results",
     "lint": "eslint src --ext .ts",
     "typecheck": "tsc --noEmit"
   },
@@ -19,8 +19,6 @@
     "@playwright/test": "^1.42.1",
     "allure-cucumberjs": "^3.0.0",
     "allure-js-commons": "^3.0.0",
-    "cross-env": "^7.0.3",
-    "cucumber-pretty": "^6.0.1",
     "dotenv": "^16.4.5",
     "playwright": "^1.42.1"
   },
