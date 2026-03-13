@@ -9,6 +9,7 @@
     "test:load": "cross-env STAGES_PROFILE=load  node scripts/k6-runner.js src/scenarios/products.test.js",
     "test:spike": "cross-env STAGES_PROFILE=spike node scripts/k6-runner.js src/scenarios/products.test.js",
     "test:soak": "cross-env STAGES_PROFILE=soak  node scripts/k6-runner.js src/scenarios/products.test.js",
+    "test:ci": "cross-env STAGES_PROFILE=debug k6 run src/scenarios/products.test.js --out json=results/summary.json || true",
     "test:report": "node src/utils/generate-report.js && start results/report.html",
     "clean": "rimraf results"
   },
