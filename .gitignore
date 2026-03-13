@@ -31,3 +31,6 @@ yarn-error.log*
 
 # ─── Mobile Apps (binários grandes) ──────────────────────────────────────────
 mobile-tests/apps/*.apk
+
+# ─── Limpeza do Projeto  ──────────────────────────────────────────
+clean.ps1
