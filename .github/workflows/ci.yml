@@ -193,7 +193,7 @@ jobs:
       # ─── Gerar relatório Allure (apenas web) ─────────────────────────────────
       - name: Gerar relatório Allure
         if: always() && matrix.suite == 'web'
-        run: yarn workspace web-tests run allure:generate
+        run: yarn workspace web-tests allure:generate
 
       # ─── Salvar allure-report/history para próxima execução (Trend) ──────────
       # Após o allure generate, allure-report/history/ contém o histórico
