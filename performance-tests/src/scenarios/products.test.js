@@ -1,7 +1,7 @@
 import { sleep, check } from 'k6';
 import { Trend, Rate, Counter } from 'k6/metrics';
-import { htmlReport } from 'https://raw.githubusercontent.com/benc-uk/k6-reporter/main/dist/bundle.js';
-import { textSummary } from 'https://jslib.k6.io/k6-summary/0.0.1/index.js';
+import { htmlReport } from 'https://raw.githubusercontent.com/benc-uk/k6-reporter/latest/dist/bundle.js';
+import { textSummary } from 'https://jslib.k6.io/k6-summary/0.0.2/index.js';
 import { ProductsClient } from '../utils/products.client.js';
 import { executionOptions, BASE_URL } from '../config/options.js';
 
@@ -27,8 +27,7 @@ const categoriesCount = new Counter('total_categories_requests');
 
 /**
  * sleep com jitter — distribui a pausa aleatoriamente entre [min, max].
- * Evita que VUs acordem no mesmo milissegundo (ondas sincronizadas),
- * tornando o perfil de carga mais próximo do comportamento humano real.
+ * Evita que VUs acordem no mesmo milissegundo (ondas sincronizadas).
  */
 function jitter(min, max) {
   sleep(min + Math.random() * (max - min));
@@ -36,7 +35,9 @@ function jitter(min, max) {
 
 /**
  * Registra a resposta de um endpoint nas métricas correspondentes.
- * Centraliza trend + counter + check + errorRate que se repetiriam em cada bloco.
+ * Centraliza trend + counter + check + errorRate.
+ * O ProductsClient NÃO executa checks internos — toda lógica de validação
+ * está aqui para evitar dupla contagem nas métricas do k6.
  */
 function recordMetrics(response, trend, counter, checkLabel) {
   trend.add(response.timings.duration);
@@ -55,7 +56,6 @@ function recordMetrics(response, trend, counter, checkLabel) {
  * Retorna dados compartilhados entre os VUs.
  */
 export function setup() {
-  // ── Detecta o modo de execução para exibir no log ─────────────────────────
   const vus = parseInt(__ENV.VUS, 10);
   const duration = __ENV.DURATION;
   const isCustom = !isNaN(vus) && duration;
@@ -106,11 +106,9 @@ export default function () {
   const listResponse = ProductsClient.getAll(10, 0);
   recordMetrics(listResponse, listProductsTrend, listProductsCount, 'GET /products');
 
-  jitter(0.8, 1.5); // simula tempo de leitura da listagem
+  jitter(0.8, 1.5);
 
   // ── 2. Buscar produto por ID aleatório ─────────────────────────────────────
-  //  Math.random() por VU garante IDs diferentes entre VUs concorrentes,
-  //  evitando que todos atinjam o mesmo objeto em cache.
   const randomId = Math.floor(Math.random() * 100) + 1;
   const getByIdResponse = ProductsClient.getById(randomId);
   recordMetrics(getByIdResponse, getByIdTrend, getByIdCount, `GET /products/${randomId}`);
@@ -124,7 +122,7 @@ export default function () {
     const searchResponse = ProductsClient.search(term);
     recordMetrics(searchResponse, searchTrend, searchCount, `GET /products/search?q=${term}`);
 
-    jitter(0.3, 0.7);
+    jitter(0.3, 0.7); 
   }
 
   // ── 4. Listar categorias — 20% das iterações ───────────────────────────────
@@ -163,11 +161,6 @@ export function teardown(data) {
 }
 
 // ─── handleSummary ────────────────────────────────────────────────────────────
-
-/**
- * Gera os artefatos de relatório ao final do teste.
- * Executado pelo k6 após o teardown, recebendo todas as métricas coletadas.
- */
 export function handleSummary(data) {
   return {
     'results/report.html': htmlReport(data),

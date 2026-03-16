@@ -1,10 +1,11 @@
 import http from 'k6/http';
-import { check } from 'k6';
 import { BASE_URL } from '../config/options.js';
 
 const PRODUCTS_PATH = '/products';
 
-
+// O ProductsClient executa APENAS as requisições HTTP e retorna a Response.
+// Toda a lógica de check() e métricas está centralizada em recordMetrics()
+// no arquivo de cenário — evita dupla contagem nas métricas do k6.
 export const ProductsClient = {
   /**
    * GET /products — Lista todos os produtos com limite opcional.
@@ -13,24 +14,9 @@ export const ProductsClient = {
    */
   getAll(limit = 10, skip = 0) {
     const url = `${BASE_URL}${PRODUCTS_PATH}?limit=${limit}&skip=${skip}`;
-    const response = http.get(url, {
+    return http.get(url, {
       tags: { endpoint: 'get_all_products' }
     });
-
-    check(response, {
-      'GET /products — status 200': (r) => r.status === 200,
-      'GET /products — body não vazio': (r) => r.body && r.body.length > 0,
-      'GET /products — tem campo products': (r) => {
-        try {
-          const body = JSON.parse(r.body);
-          return Array.isArray(body.products);
-        } catch {
-          return false;
-        }
-      }
-    });
-
-    return response;
   },
 
   /**
@@ -39,23 +25,9 @@ export const ProductsClient = {
    */
   getById(id) {
     const url = `${BASE_URL}${PRODUCTS_PATH}/${id}`;
-    const response = http.get(url, {
+    return http.get(url, {
       tags: { endpoint: 'get_product_by_id' }
     });
-
-    check(response, {
-      'GET /products/:id — status 200': (r) => r.status === 200,
-      'GET /products/:id — tem campo id': (r) => {
-        try {
-          const body = JSON.parse(r.body);
-          return typeof body.id === 'number';
-        } catch {
-          return false;
-        }
-      }
-    });
-
-    return response;
   },
 
   /**
@@ -64,15 +36,9 @@ export const ProductsClient = {
    */
   search(query) {
     const url = `${BASE_URL}${PRODUCTS_PATH}/search?q=${encodeURIComponent(query)}`;
-    const response = http.get(url, {
+    return http.get(url, {
       tags: { endpoint: 'search_products' }
     });
-
-    check(response, {
-      'GET /products/search — status 200': (r) => r.status === 200
-    });
-
-    return response;
   },
 
   /**
@@ -80,14 +46,8 @@ export const ProductsClient = {
    */
   getCategories() {
     const url = `${BASE_URL}${PRODUCTS_PATH}/categories`;
-    const response = http.get(url, {
+    return http.get(url, {
       tags: { endpoint: 'get_categories' }
     });
-
-    check(response, {
-      'GET /products/categories — status 200': (r) => r.status === 200
-    });
-
-    return response;
   }
 };

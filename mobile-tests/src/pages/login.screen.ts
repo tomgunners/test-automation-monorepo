@@ -16,8 +16,8 @@ export class LoginScreen extends BasePage {
   }
 
   async verifyLoginSuccess(): Promise<void> {
-    const container = await $('id=com.wdiodemoapp:id/parentPanel');
-    const textElements = await container.$$('android.widget.TextView');
+    const container = await $(LoginLocators.successContainer);
+    const textElements = await container.$$(LoginLocators.successTextElement);
     const allTexts = await Promise.all(
       Array.from(textElements).map(el => el.getText())
     );
@@ -33,19 +33,19 @@ export class LoginScreen extends BasePage {
   async getErrorMessage(): Promise<string> {
     const [emailVisible, passwordVisible] = await Promise.all([
       this.isDisplayed(LoginLocators.emailErrorMessage),
-      this.isDisplayed(LoginLocators.passwordErrorMessage)
+      this.isDisplayed(LoginLocators.passwordErrorMessage),
     ]);
 
     if (emailVisible) return this.getText(LoginLocators.emailErrorMessage);
     if (passwordVisible) return this.getText(LoginLocators.passwordErrorMessage);
 
-    throw new Error('getErrorMessage: nenhum erro de campo visível na tela de login');
+    return '';
   }
 
   async hasError(): Promise<boolean> {
     const [emailVisible, passwordVisible] = await Promise.all([
       this.isDisplayed(LoginLocators.emailErrorMessage),
-      this.isDisplayed(LoginLocators.passwordErrorMessage)
+      this.isDisplayed(LoginLocators.passwordErrorMessage),
     ]);
 
     return emailVisible || passwordVisible;

@@ -1,7 +1,7 @@
 {
   "name": "test-automation-monorepo",
   "version": "1.0.0",
-  "description": "Monorepo de automação de testes: Web, API e Performance",
+  "description": "Monorepo de automação de testes: Web, API, Performance e Mobile",
   "private": true,
   "workspaces": [
     "web-tests",

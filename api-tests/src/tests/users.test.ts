@@ -6,6 +6,21 @@ import { User, UsersListResponse } from '../schemas/user.types';
 
 const userService = new UserService();
 
+// IDs obtidos dinamicamente no before() para evitar dependência de dados fixos.
+// Em APIs que persistem estado, esses IDs seriam criados via POST e limpos no after().
+// Contra o DummyJSON usamos IDs extraídos do GET /users pois o POST não persiste.
+let validUserId: number;
+let secondUserId: number;
+
+before(async function () {
+  this.timeout(15000);
+  const response = await userService.getAllUsers(2, 0);
+  ApiUtils.assertStatus(response, 200);
+  const body = response.body as UsersListResponse;
+  validUserId = body.users[0].id;
+  secondUserId = body.users[1].id;
+});
+
 describe('Users API', function () {
   this.timeout(15000);
 
@@ -46,18 +61,18 @@ describe('Users API', function () {
   // ─── GET — Buscar usuário por ID ─────────────────────────────────────────────
   describe('GET /users/:id — Buscar por ID', function () {
     it('Validar busca de usuário existente pelo ID', async function () {
-      const response = await userService.getUserById(1);
+      const response = await userService.getUserById(validUserId);
 
       ApiUtils.assertStatus(response, 200);
       ApiUtils.assertJsonContentType(response);
 
       const user = response.body as User;
       UserSchema.validateUser(user);
-      expect(user.id).to.equal(1);
+      expect(user.id).to.equal(validUserId);
     });
 
     it('Verificar presença dos campos obrigatórios no retorno do usuário', async function () {
-      const response = await userService.getUserById(2);
+      const response = await userService.getUserById(secondUserId);
 
       ApiUtils.assertStatus(response, 200);
 
@@ -75,8 +90,31 @@ describe('Users API', function () {
     });
   });
 
-  // ─── POST — Criar usuário ────────────────────────────────────────────────────
+  // ─── GET — Buscar usuários por query ─────────────────────────────────────────
+  describe('GET /users/search — Buscar por query string', function () {
+    it('Validar busca de usuários por nome retorna resultados', async function () {
+      const response = await userService.searchUsers('Emily');
 
+      ApiUtils.assertStatus(response, 200);
+      ApiUtils.assertJsonContentType(response);
+
+      const body = response.body as UsersListResponse;
+      expect(body).to.have.property('users').that.is.an('array');
+      expect(body.users.length).to.be.greaterThan(0);
+      body.users.forEach(user => UserSchema.validateUser(user));
+    });
+
+    it('Validar busca com termo sem resultados retorna lista vazia', async function () {
+      const response = await userService.searchUsers('xyznotexistent999');
+
+      ApiUtils.assertStatus(response, 200);
+
+      const body = response.body as UsersListResponse;
+      expect(body.users).to.be.an('array').that.is.empty;
+    });
+  });
+
+  // ─── POST — Criar usuário ────────────────────────────────────────────────────
   describe('POST /users/add — Criar usuário', function () {
     it('Validar criação de usuário com payload válido e status 201', async function () {
       const payload = ApiUtils.generateUserPayload();
@@ -96,7 +134,7 @@ describe('Users API', function () {
     });
 
     it('Verificar geração de novo ID ao criar usuário', async function () {
-      const payload = ApiUtils.generateUserPayload('second');
+      const payload = ApiUtils.generateUserPayload();
       const response = await userService.createUser(payload);
 
       ApiUtils.assertStatus(response, 201);
@@ -104,20 +142,36 @@ describe('Users API', function () {
       const createdUser = response.body as User;
       expect(createdUser.id).to.be.a('number').and.to.be.greaterThan(0);
     });
+
+    it('Validar que o ID retornado na criação é um número positivo válido', async function () {
+      // Nota: a DummyJSON é uma API de mock que não persiste dados e retorna
+      // sempre o mesmo ID simulado. Este teste valida apenas que o campo id
+      // existe e é um número positivo — comportamento garantido pelo contrato.
+      // Em uma API real com persistência, o teste verificaria IDs distintos
+      // entre chamadas paralelas.
+      const payload = ApiUtils.generateUserPayload();
+      const response = await userService.createUser(payload);
+
+      ApiUtils.assertStatus(response, 201);
+
+      const createdUser = response.body;
+      expect(createdUser.id).to.be.a('number').and.greaterThan(0);
+      expect(createdUser.firstName).to.equal(payload.firstName);
+      expect(createdUser.email).to.equal(payload.email);
+    });
   });
 
   // ─── PUT — Atualizar usuário ─────────────────────────────────────────────────
-
   describe('PUT /users/:id — Atualizar usuário', function () {
-    it('Validar atualização do primeiro Nome de usuário existente', async function () {
+    it('Validar atualização do primeiro nome de usuário existente', async function () {
       const updatePayload = { firstName: 'UpdatedName' };
-      const response = await userService.updateUser(1, updatePayload);
+      const response = await userService.updateUser(validUserId, updatePayload);
 
       ApiUtils.assertStatus(response, 200);
       ApiUtils.assertJsonContentType(response);
 
       const updatedUser = response.body as User;
-      expect(updatedUser).to.have.property('id').that.equals(1);
+      expect(updatedUser).to.have.property('id').that.equals(validUserId);
       expect(updatedUser.firstName).to.equal('UpdatedName');
     });
 
@@ -127,7 +181,7 @@ describe('Users API', function () {
         lastName: 'Tester',
         age: 35
       };
-      const response = await userService.updateUser(1, updatePayload);
+      const response = await userService.updateUser(validUserId, updatePayload);
 
       ApiUtils.assertStatus(response, 200);
 
@@ -143,22 +197,21 @@ describe('Users API', function () {
   });
 
   // ─── DELETE — Remover usuário ────────────────────────────────────────────────
-
   describe('DELETE /users/:id — Remover usuário', function () {
     it('Validar remoção de usuário existente com status 200', async function () {
-      const response = await userService.deleteUser(1);
+      const response = await userService.deleteUser(validUserId);
 
       ApiUtils.assertStatus(response, 200);
       ApiUtils.assertJsonContentType(response);
 
       const deletedUser = response.body as User & { isDeleted: boolean; deletedOn: string };
-      expect(deletedUser).to.have.property('id').that.equals(1);
+      expect(deletedUser).to.have.property('id').that.equals(validUserId);
       expect(deletedUser).to.have.property('isDeleted').that.equals(true);
       expect(deletedUser).to.have.property('deletedOn').that.is.a('string');
     });
 
     it('Verificar retorno do objeto deletado com flag isDeleted', async function () {
-      const response = await userService.deleteUser(2);
+      const response = await userService.deleteUser(secondUserId);
 
       ApiUtils.assertStatus(response, 200);
 

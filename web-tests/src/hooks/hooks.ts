@@ -19,8 +19,6 @@ setWorldConstructor(CustomWorld);
 setDefaultTimeout(config.timeouts.default);
 
 let sharedBrowser: Browser;
-let sharedContext: BrowserContext;
-let sharedPage: Page;
 
 function clearDir(dir: string): void {
   if (fs.existsSync(dir)) {
@@ -47,40 +45,31 @@ BeforeAll(async function () {
         : chromium;
 
   sharedBrowser = await browserType.launch({
-    headless: config.browser.headless,    // removido inversão do headless
+    headless: config.browser.headless,
     slowMo: config.browser.slowMo,
-    args: ['--start-maximized']     //adicionado args para maximizar a tela do browser
+    args: ['--start-maximized']
   });
+});
 
-  sharedContext = await sharedBrowser.newContext({
+// Cada cenário recebe um novo BrowserContext + nova Page para isolamento total.
+// O browser em si é reutilizado entre cenários para reduzir tempo de inicialização.
+Before(async function (this: CustomWorld, { pickle }) {
+  this.scenarioName = pickle.name;
+  this.browser = sharedBrowser;
+
+  this.context = await sharedBrowser.newContext({
     viewport: null,
     locale: 'pt-BR',
     timezoneId: 'America/Sao_Paulo'
   });
 
-  // usa a mesma aba para todos os testes
-  sharedPage = await sharedContext.newPage();
-  sharedPage.setDefaultTimeout(config.timeouts.default);
-});
-
-
-Before(async function (this: CustomWorld, { pickle }) {
-
-  this.scenarioName = pickle.name;
-  this.browser = sharedBrowser;
-  this.context = sharedContext;
-  this.page = sharedPage;
-
-  // volta para estado neutro
-  if (!sharedPage.isClosed()) {
-    await sharedPage.goto('about:blank');
-  }
+  this.page = await this.context.newPage();
+  this.page.setDefaultTimeout(config.timeouts.default);
 
   this.initPages();
 });
 
 After(async function (this: CustomWorld, { result, pickle }) {
-
   if (result?.status === Status.FAILED && this.page && !this.page.isClosed()) {
     try {
       const screenshot = await this.page.screenshot({ fullPage: true });
@@ -91,31 +80,20 @@ After(async function (this: CustomWorld, { result, pickle }) {
         'screenshots',
         `${safeName}_${Date.now()}.png`
       );
-
       fs.writeFileSync(screenshotPath, screenshot);
       console.error(`Screenshot salvo: ${screenshotPath}`);
-
     } catch (err) {
       console.error('Erro ao capturar screenshot', err);
     }
   }
 
-  // limpa estado da aplicação (uma única vez)
-  try {
-    if (this.page && !this.page.isClosed()) {
-      await this.page.evaluate(() => {
-        localStorage.clear();
-        sessionStorage.clear();
-      });
-      await sharedContext.clearCookies();
-    }
-  } catch {
-    // ignorar se a página estiver em about:blank ou navegação pendente
-  }
+  // Fecha o contexto ao final de cada cenário — descarta cookies, storage e estado.
+  // Não é necessário limpar manualmente localStorage/sessionStorage pois o contexto
+  // é destruído e recriado a cada cenário.
+  await this.context?.close();
 });
 
 AfterAll(async function () {
-  await sharedContext?.close();
   await sharedBrowser?.close();
 
   console.log('\nSuíte de testes Web finalizada.');

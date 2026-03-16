@@ -1,39 +1,43 @@
 import { Given, When, Then } from '@cucumber/cucumber';
 import { expect } from '@playwright/test';
 import { CustomWorld } from '../hooks/world';
+import { config } from '../config/env.config';
 
 // ─── Given ────────────────────────────────────────────────────────────────────
 
 Given(
   'que estou logado com o usuário {string} e senha {string}',
   async function (this: CustomWorld, username: string, password: string) {
-    await await this.login.navigateTo();
-    await await this.login.login(username, password);
-    await await this.inventory.waitForPageLoad();
+    // Resolve labels de credencial para valores reais do .env
+    const resolvedUser = username === 'standard_user' ? config.users.standard.username : username;
+    const resolvedPass = password === 'secret_sauce' ? config.users.standard.password : password;
+    await this.login.navigateTo();
+    await this.login.login(resolvedUser, resolvedPass);
+    await this.inventory.waitForPageLoad();
   }
 );
 
 Given('estou na página de inventário', async function (this: CustomWorld) {
-  await await this.inventory.waitForPageLoad();
+  await this.inventory.waitForPageLoad();
 });
 
 Given(
   'já adicionei o produto {string} ao carrinho',
   async function (this: CustomWorld, productName: string) {
-    await await this.inventory.addProductToCart(productName);
+    await this.inventory.addProductToCart(productName);
   }
 );
 
 Given(
   'adicionei o produto {string} ao carrinho',
   async function (this: CustomWorld, productName: string) {
-    await await this.inventory.addProductToCart(productName);
+    await this.inventory.addProductToCart(productName);
   }
 );
 
 Given('naveguei para o carrinho', async function (this: CustomWorld) {
-  await await this.inventory.goToCart();
-  await await this.cart.waitForPageLoad();
+  await this.inventory.goToCart();
+  await this.cart.waitForPageLoad();
 });
 
 // ─── When ─────────────────────────────────────────────────────────────────────
@@ -41,15 +45,14 @@ Given('naveguei para o carrinho', async function (this: CustomWorld) {
 When(
   'adiciono o produto {string} ao carrinho',
   async function (this: CustomWorld, productName: string) {
-    await await this.inventory.addProductToCart(productName);
+    await this.inventory.addProductToCart(productName);
   }
 );
 
 When(
   'removo o produto {string} do carrinho',
   async function (this: CustomWorld, productName: string) {
-    // Remoção a partir da página de inventário
-    await await this.inventory.removeProductFromCart(productName);
+    await this.inventory.removeProductFromCart(productName);
   }
 );
 
@@ -58,39 +61,39 @@ When(
 Then(
   'o badge do carrinho deve exibir {string}',
   async function (this: CustomWorld, expectedCount: string) {
-    const count = await await this.inventory.getCartBadgeCount();
+    const count = await this.inventory.getCartBadgeCount();
     expect(count).toBe(Number(expectedCount));
   }
 );
 
 Then('o badge do carrinho não deve ser exibido', async function (this: CustomWorld) {
-  const count = await await this.inventory.getCartBadgeCount();
+  const count = await this.inventory.getCartBadgeCount();
   expect(count).toBe(0);
 });
 
 Then(
   'o produto {string} deve estar no carrinho',
   async function (this: CustomWorld, productName: string) {
-    await await this.inventory.goToCart();
-    await await this.cart.waitForPageLoad();
-    const isInCart = await await this.cart.isProductInCart(productName);
+    await this.inventory.goToCart();
+    await this.cart.waitForPageLoad();
+    const isInCart = await this.cart.isProductInCart(productName);
     expect(isInCart).toBeTruthy();
   }
 );
 
 Then('o carrinho deve estar vazio', async function (this: CustomWorld) {
-  await await this.inventory.goToCart();
-  await await this.cart.waitForPageLoad();
-  const count = await await this.cart.getItemCount();
+  await this.inventory.goToCart();
+  await this.cart.waitForPageLoad();
+  const count = await this.cart.getItemCount();
   expect(count).toBe(0);
 });
 
 Then(
   'o carrinho deve conter {int} itens',
   async function (this: CustomWorld, expectedCount: number) {
-    await await this.inventory.goToCart();
-    await await this.cart.waitForPageLoad();
-    const count = await await this.cart.getItemCount();
+    await this.inventory.goToCart();
+    await this.cart.waitForPageLoad();
+    const count = await this.cart.getItemCount();
     expect(count).toBe(expectedCount);
   }
 );

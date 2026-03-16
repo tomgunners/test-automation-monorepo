@@ -16,14 +16,19 @@ export const ApiUtils = {
     expect(response.headers['content-type']).to.include('application/json');
   },
 
-  //Valida que o body da resposta não está vazio.
+  //Valida que o body da resposta não está vazio e é um objeto/array não vazio.
   assertNonEmptyBody(response: Response): void {
     expect(response.body).to.not.be.null;
     expect(response.body).to.not.be.undefined;
+    // Garante que o body não é um objeto vazio {} nem um array vazio []
+    const keys = Object.keys(response.body);
+    expect(keys.length).to.be.greaterThan(0, 'Body não deve ser um objeto vazio');
   },
 
   //Gera um payload de usuário com dados únicos para testes.
-  generateUserPayload(suffix: string = Date.now().toString()) {
+  //O sufixo combina timestamp + valor aleatório para garantir unicidade mesmo
+  //em execuções paralelas ou em rápida sucessão.
+  generateUserPayload(suffix: string = `${Date.now()}_${Math.random().toString(36).slice(2, 7)}`) {
     return {
       firstName: `Test${suffix}`,
       lastName: `User${suffix}`,
