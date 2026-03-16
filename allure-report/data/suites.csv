@@ -1,28 +1,28 @@
 "DESCRIPTION","DURATION IN MS","NAME","PARENT SUITE","START TIME","STATUS","STOP TIME","SUB SUITE","SUITE","TEST CLASS","TEST METHOD"
 "Como usuário autenticado no SauceDemo
   Quero finalizar minhas compras no checkout
-  Para concluir meu pedido ou ser avisado de campos obrigatórios","566","Tentar finalizar sem preencher o primeiro nome","","2026-03-16","passed","2026-03-16","","","",""
+  Para concluir meu pedido ou ser avisado de campos obrigatórios","533","Tentar finalizar sem preencher nenhum campo","","2026-03-16","passed","2026-03-16","","","",""
 "Como usuário autenticado no SauceDemo
   Quero gerenciar os itens do meu carrinho de compras
-  Para controlar minha lista de produtos antes do checkout","508","Validar quantidade de itens no carrinho","","2026-03-16","passed","2026-03-16","","","",""
-"Como usuário autenticado no SauceDemo
-  Quero gerenciar os itens do meu carrinho de compras
-  Para controlar minha lista de produtos antes do checkout","783","Adicionar produto ao carrinho","","2026-03-16","passed","2026-03-16","","","",""
+  Para controlar minha lista de produtos antes do checkout","497","Remover produto do carrinho","","2026-03-16","passed","2026-03-16","","","",""
 "Como usuário da plataforma SauceDemo
   Quero realizar o login com diferentes credenciais
-  Para acessar ou ser impedido de acessar o sistema","322","Login com credenciais inválidas","","2026-03-16","passed","2026-03-16","","","",""
+  Para acessar ou ser impedido de acessar o sistema","356","Login com credenciais inválidas","","2026-03-16","passed","2026-03-16","","","",""
+"Como usuário autenticado no SauceDemo
+  Quero gerenciar os itens do meu carrinho de compras
+  Para controlar minha lista de produtos antes do checkout","507","Validar quantidade de itens no carrinho","","2026-03-16","passed","2026-03-16","","","",""
+"Como usuário da plataforma SauceDemo
+  Quero realizar o login com diferentes credenciais
+  Para acessar ou ser impedido de acessar o sistema","370","Login com sucesso usando credenciais válidas","","2026-03-16","passed","2026-03-16","","","",""
 "Como usuário autenticado no SauceDemo
   Quero finalizar minhas compras no checkout
-  Para concluir meu pedido ou ser avisado de campos obrigatórios","515","Tentar finalizar sem preencher nenhum campo","","2026-03-16","passed","2026-03-16","","","",""
+  Para concluir meu pedido ou ser avisado de campos obrigatórios","609","Finalizar compra com sucesso","","2026-03-16","passed","2026-03-16","","","",""
 "Como usuário autenticado no SauceDemo
   Quero finalizar minhas compras no checkout
-  Para concluir meu pedido ou ser avisado de campos obrigatórios","3056","Finalizar compra com sucesso","","2026-03-16","passed","2026-03-16","","","",""
+  Para concluir meu pedido ou ser avisado de campos obrigatórios","549","Tentar finalizar sem preencher o primeiro nome","","2026-03-16","passed","2026-03-16","","","",""
 "Como usuário autenticado no SauceDemo
   Quero gerenciar os itens do meu carrinho de compras
-  Para controlar minha lista de produtos antes do checkout","2547","Remover produto do carrinho","","2026-03-16","passed","2026-03-16","","","",""
+  Para controlar minha lista de produtos antes do checkout","659","Adicionar produto ao carrinho","","2026-03-16","passed","2026-03-16","","","",""
 "Como usuário da plataforma SauceDemo
   Quero realizar o login com diferentes credenciais
-  Para acessar ou ser impedido de acessar o sistema","365","Login com usuário bloqueado","","2026-03-16","passed","2026-03-16","","","",""
-"Como usuário da plataforma SauceDemo
-  Quero realizar o login com diferentes credenciais
-  Para acessar ou ser impedido de acessar o sistema","353","Login com sucesso usando credenciais válidas","","2026-03-16","passed","2026-03-16","","","",""
+  Para acessar ou ser impedido de acessar o sistema","332","Login com usuário bloqueado","","2026-03-16","passed","2026-03-16","","","",""
