@@ -131,7 +131,32 @@ jobs:
         if: matrix.suite == 'web'
         run: npm install -g allure-commandline
 
-# ─── Executar testes ─────────────────────────────────────────────────────
+      # ─── Restaurar allure-report/history (Trend) ─────────────────────────────
+      #
+      # O allure-setup.ts segue o padrão:
+      #   restoreHistory(): copia allure-report/history → allure-results/history
+      #
+      # Por isso cacheamos allure-report/history (a FONTE), não allure-results/history.
+      # Se cacheássemos allure-results/history, o setupAllure() sobrescreveria com
+      # allure-report/history (vazio no CI) — zerando o histórico a cada run.
+      #
+      # actions/cache persiste entre runs:
+      #   key única por run_id → novo cache por execução
+      #   restore-keys sem run_id → restaura sempre o cache mais recente da suite
+      #
+      # Na primeira execução não há cache — o Trend começa a acumular
+      # a partir da segunda execução automaticamente.
+      #
+      - name: Restaurar allure-report/history
+        if: matrix.suite == 'web'
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ matrix.path }}/allure-report/history
+          key: allure-report-history-${{ matrix.suite }}-${{ github.run_id }}
+          restore-keys: |
+            allure-report-history-${{ matrix.suite }}-
+
+      # ─── Executar testes ──────────────────────────────────────────────────────
       - name: Executar testes
         if: >
           github.event.inputs.test_suite == matrix.suite ||
@@ -155,11 +180,31 @@ jobs:
           BROWSER: chromium
           API_BASE_URL: https://dummyjson.com
           STAGES_PROFILE: ${{ github.event.inputs.perf_profile || 'load' }}
+          # Expostos para o allure-setup.ts popular Environment e Executors
+          GITHUB_RUN_ID:     ${{ github.run_id }}
+          GITHUB_RUN_NUMBER: ${{ github.run_number }}
+          GITHUB_WORKFLOW:   ${{ github.workflow }}
+          GITHUB_ACTOR:      ${{ github.actor }}
+          GITHUB_SERVER_URL: ${{ github.server_url }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_REF_NAME:   ${{ github.ref_name }}
+          REPORT_URL:        https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/allure-report
 
       # ─── Gerar relatório Allure (apenas web) ─────────────────────────────────
       - name: Gerar relatório Allure
         if: always() && matrix.suite == 'web'
         run: yarn workspace web-tests run allure:generate
+
+      # ─── Salvar allure-report/history para próxima execução (Trend) ──────────
+      # Após o allure generate, allure-report/history/ contém o histórico
+      # atualizado com os dados desta execução.
+      # if: always() garante que o histórico é salvo mesmo quando os testes falham.
+      - name: Salvar allure-report/history
+        if: always() && matrix.suite == 'web'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ matrix.path }}/allure-report/history
+          key: allure-report-history-${{ matrix.suite }}-${{ github.run_id }}
 
       # ─── Upload de artefatos ─────────────────────────────────────────────────
       - name: Upload artefatos

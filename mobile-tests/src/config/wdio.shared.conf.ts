@@ -6,55 +6,61 @@ dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
 export const sharedConfig: Partial<Options.Testrunner> = {
 
-  // ── Runner ─────────────────────────────────────────────────────────────────
   runner: 'local',
 
-  // ── Specs ──────────────────────────────────────────────────────────────────
   specs: [path.join(__dirname, '..', 'tests', '**', '*.spec.ts')],
   exclude: [],
 
-  // ── Paralelismo ────────────────────────────────────────────────────────────
   maxInstances: 1,
 
-  // ── Framework ──────────────────────────────────────────────────────────────
   framework: 'mocha',
   mochaOpts: {
     ui: 'bdd',
-    timeout: Number(process.env.TEST_TIMEOUT ?? 120000)
+    timeout: Number(process.env.TEST_TIMEOUT ?? 120000),
   },
 
-  // ── Reporters ──────────────────────────────────────────────────────────────
   reporters: [
     ['spec', {
-      addConsoleLogs: true,
+      addConsoleLogs:    true,
       realtimeReporting: true,
-      color: true
+      color:             true,
     }],
     ['allure', {
-      outputDir: 'allure-results',
-      disableWebdriverStepsReporting: false,
+      outputDir:                            'allure-results',
+      disableWebdriverStepsReporting:       false,
       disableWebdriverScreenshotsReporting: false,
-      useCucumberStepReporter: false
-    }]
+      useCucumberStepReporter:              false,
+    }],
   ],
-
-  // ── Hooks ──────────────────────────────────────────────────────────────────
 
   /**
    * Executado uma vez antes de todas as sessões.
-   * Limpa allure-results para evitar contaminação de execuções anteriores
-   * e recria os diretórios de saída necessários.
+   *
+   * Ordem das operações:
+   *   1. clearAllureResults() — apaga resultados anteriores (pasta recriada vazia)
+   *   2. setupAllure()        — restaura history/ + escreve environment, executor, categories
+   *   3. Recria diretórios de saída
+   *
+   * A ordem importa: se setupAllure() viesse antes, a limpeza apagaria
+   * environment.properties, executor.json e categories.json recém-criados.
    */
   onPrepare() {
-    const fs = require('fs') as typeof import('fs');
+    const fs   = require('fs')   as typeof import('fs');
+    const path = require('path') as typeof import('path');
 
-    // Limpa allure-results — mesmo padrão do web-tests
-    if (fs.existsSync('allure-results')) {
-      fs.rmSync('allure-results', { recursive: true, force: true });
+    // 1. Limpa tudo — pasta allure-results/ recriada vazia
+    const allureResultsDir = 'allure-results';
+    if (fs.existsSync(allureResultsDir)) {
+      fs.rmSync(allureResultsDir, { recursive: true, force: true });
     }
+    fs.mkdirSync(allureResultsDir, { recursive: true });
 
-    // Recria os diretórios necessários
-    for (const dir of ['reports/screenshots', 'allure-results']) {
+    // 2. Setup do Allure: restaura history/ de allure-report/history + gera metadados
+    const { setupAllure } = require('../utils/allure-setup');
+    setupAllure();
+
+    // 3. Diretórios de saída
+    for (const dir of ['reports/screenshots']) {
       if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
     }
   },
@@ -63,15 +69,10 @@ export const sharedConfig: Partial<Options.Testrunner> = {
     console.log(`\nIniciando: ${suite.title}`);
   },
 
-  /**
-   * Executado após cada teste.
-   * Em falhas: captura screenshot, anexa ao Allure e registra o log de erro.
-   */
   async afterTest(test, _ctx, { passed, error }) {
     if (!passed) {
       const testTitle = test.title ?? 'unknown_test';
 
-      // ── Screenshot ────────────────────────────────────────────────────────
       try {
         const screenshotBase64 = await browser.takeScreenshot();
 
@@ -89,13 +90,12 @@ export const sharedConfig: Partial<Options.Testrunner> = {
           const filePath = path.join(screenshotDir, `${safeTitle}_${Date.now()}.png`);
           fs.writeFileSync(filePath, Buffer.from(screenshotBase64, 'base64'));
 
-          // Anexa ao Allure como imagem inline
           await browser.call(async () => {
             const allure = require('@wdio/allure-reporter').default;
             allure.addAttachment(
               `Screenshot — ${testTitle}`,
               Buffer.from(screenshotBase64, 'base64'),
-              'image/png'
+              'image/png',
             );
           });
 
@@ -105,7 +105,6 @@ export const sharedConfig: Partial<Options.Testrunner> = {
         console.error('[afterTest] Falha ao capturar screenshot:', screenshotErr);
       }
 
-      // ── Error Log ─────────────────────────────────────────────────────────
       try {
         const errorMessage = error?.message ?? 'Erro desconhecido';
         const errorStack   = error?.stack   ?? '';
@@ -115,7 +114,7 @@ export const sharedConfig: Partial<Options.Testrunner> = {
           allure.addAttachment(
             `Error Log — ${testTitle}`,
             `Mensagem: ${errorMessage}\n\nStack:\n${errorStack}`,
-            'text/plain'
+            'text/plain',
           );
         });
 
@@ -137,7 +136,7 @@ export const sharedConfig: Partial<Options.Testrunner> = {
     console.log(`Passou : ${passed}`);
     console.log(`Falhou : ${failed}`);
     console.log(`Total  : ${total}`);
-    console.log('Execute o comando: [yarn test:mobile:allure] para acessar o relatório');
+    console.log('Execute: [yarn test:mobile:allure] → relatório Allure');
     console.log('════════════════════════════════════════════════\n');
-  }
+  },
 };

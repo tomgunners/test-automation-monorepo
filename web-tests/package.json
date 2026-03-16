@@ -8,7 +8,6 @@
     "test:smoke": "cucumber-js --profile smoke",
     "test:regression": "cucumber-js --profile regression",
     "report:cucumber": "node -e \"const {execSync}=require('child_process');try{execSync('open test-results/cucumber-report.html')}catch{execSync('start test-results/cucumber-report.html')}\"",
-    "allure:generate": "allure generate allure-results -o allure-report --clean",
     "report:allure": "allure generate allure-results -o allure-report --clean && allure open allure-report",
     "clean": "rimraf test-results allure-results allure-report && mkdir test-results && mkdir allure-results",
     "lint": "eslint src --ext .ts",

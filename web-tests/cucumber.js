@@ -35,7 +35,7 @@ const BASE_REQUIRES = {
   requireModule: ["ts-node/register"],
   format: BASE_FORMAT,
   formatOptions: BASE_FORMAT_OPTIONS,
-  publish: true,
+  publish: false,
 };
 
 module.exports = {
