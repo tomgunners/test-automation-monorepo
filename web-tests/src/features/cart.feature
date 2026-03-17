@@ -5,7 +5,7 @@ Feature: Gerenciamento do Carrinho de Compras
   Para controlar minha lista de produtos antes do checkout
 
   Background:
-    Given que estou logado com o usuário "standard_user" e senha "secret_sauce"
+    Given que estou logado como "standard"
     And estou na página de inventário
 
   @smoke @severity:critical

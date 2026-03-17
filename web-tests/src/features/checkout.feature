@@ -5,7 +5,7 @@ Feature: Finalização de Compra (Checkout)
   Para concluir meu pedido ou ser avisado de campos obrigatórios
 
   Background:
-    Given que estou logado com o usuário "standard_user" e senha "secret_sauce"
+    Given que estou logado como "standard"
     And adicionei o produto "Sauce Labs Backpack" ao carrinho
     And naveguei para o carrinho
     And cliquei em "Checkout"

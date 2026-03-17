@@ -8,15 +8,17 @@ export const config = {
 
   browser: {
     headless: process.env.HEADLESS === 'true',
-    slowMo: Number(process.env.SLOW_MO ?? 0),
-    type: (process.env.BROWSER ?? 'chromium') as 'chromium' | 'firefox' | 'webkit'
+    slowMo:   Number(process.env.SLOW_MO ?? 0),
+    type:     (process.env.BROWSER ?? 'chromium') as 'chromium' | 'firefox' | 'webkit',
   },
 
   timeouts: {
-    default: Number(process.env.DEFAULT_TIMEOUT ?? 30000),
-    navigation: Number(process.env.NAVIGATION_TIMEOUT ?? 60000)
+    default:    Number(process.env.DEFAULT_TIMEOUT    ?? 30000),
+    navigation: Number(process.env.NAVIGATION_TIMEOUT ?? 60000),
   },
 
+  // ── Credenciais dos usuários de teste ───────────────────────────────────────
+  // Lidas exclusivamente do .env — nenhuma credencial hardcoded no código.
   users: {
     standard: {
       username: process.env.STANDARD_USER ?? 'standard_user',
@@ -30,7 +32,7 @@ export const config = {
       username: process.env.INVALID_USER ?? 'invalid_user',
       password: process.env.INVALID_PASSWORD ?? 'wrong_password',
     },
-  },
+  } as Record<string, { username: string; password: string }>,
 } as const;
 
 export type AppConfig = typeof config;

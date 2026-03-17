@@ -3,16 +3,24 @@ import { expect } from '@playwright/test';
 import { CustomWorld } from '../hooks/world';
 import { config } from '../config/env.config';
 
+function resolveUser(label: string): { username: string; password: string } {
+  const user = config.users[label];
+  if (!user) {
+    throw new Error(
+      `[resolveUser] Label "${label}" não encontrado em config.users. ` +
+      `Labels disponíveis: ${Object.keys(config.users).join(', ')}`
+    );
+  }
+  return user;
+}
+
 // ─── Given ────────────────────────────────────────────────────────────────────
 
-Given(
-  'que estou logado com o usuário {string} e senha {string}',
-  async function (this: CustomWorld, username: string, password: string) {
-    // Resolve labels de credencial para valores reais do .env
-    const resolvedUser = username === 'standard_user' ? config.users.standard.username : username;
-    const resolvedPass = password === 'secret_sauce' ? config.users.standard.password : password;
+// Step de login via label semântico — credenciais resolvidas do .env
+Given('que estou logado como {string}', async function (this: CustomWorld, userLabel: string) {
+    const { username, password } = resolveUser(userLabel);
     await this.login.navigateTo();
-    await this.login.login(resolvedUser, resolvedPass);
+    await this.login.login(username, password);
     await this.inventory.waitForPageLoad();
   }
 );
@@ -21,11 +29,9 @@ Given('estou na página de inventário', async function (this: CustomWorld) {
   await this.inventory.waitForPageLoad();
 });
 
-Given(
-  'já adicionei o produto {string} ao carrinho',
-  async function (this: CustomWorld, productName: string) {
-    await this.inventory.addProductToCart(productName);
-  }
+Given('já adicionei o produto {string} ao carrinho', async function (this: CustomWorld, productName: string) {
+  await this.inventory.addProductToCart(productName);
+}
 );
 
 Given(

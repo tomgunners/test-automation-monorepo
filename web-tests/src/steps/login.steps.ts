@@ -1,27 +1,20 @@
 import { Given, When, Then } from '@cucumber/cucumber';
 import { expect } from '@playwright/test';
 import { CustomWorld } from '../hooks/world';
-import { ErrorMessages } from '../data/messages';
 import { config } from '../config/env.config';
 
-// ─── Resolução de credenciais ─────────────────────────────────────────────────
-// Mapeia labels semânticos usados nas features para credenciais reais vindas do .env.
-// Ao mudar de ambiente, basta atualizar as variáveis — nenhum .feature é alterado.
-function resolveUsername(label: string): string {
-  const map: Record<string, string> = {
-    'standard_user': config.users.standard.username,
-    'locked_out_user': config.users.locked.username,
-    'invalid_user': config.users.invalid.username,
-  };
-  return map[label] ?? label;
-}
-
-function resolvePassword(label: string): string {
-  const map: Record<string, string> = {
-    'secret_sauce': config.users.standard.password,
-    'wrong_password': config.users.invalid.password,
-  };
-  return map[label] ?? label;
+// ── Resolução de credenciais ─────────────────────────────────────────────────
+// Mapeia o label semântico do Gherkin para as credenciais reais vindas do .env.
+// Centraliza aqui para que feature files nunca contenham valores sensíveis.
+function resolveUser(label: string): { username: string; password: string } {
+  const user = config.users[label];
+  if (!user) {
+    throw new Error(
+      `[resolveUser] Label "${label}" não encontrado em config.users. ` +
+      `Labels disponíveis: ${Object.keys(config.users).join(', ')}`
+    );
+  }
+  return user;
 }
 
 // ─── Given ────────────────────────────────────────────────────────────────────
@@ -32,11 +25,13 @@ Given('que estou na página de login', async function (this: CustomWorld) {
 
 // ─── When ─────────────────────────────────────────────────────────────────────
 
+// Step unificado: recebe o label semântico e resolve para as credenciais do .env
 When(
-  'informo o usuário {string} e a senha {string}',
-  async function (this: CustomWorld, username: string, password: string) {
-    await this.login.fillUsername(resolveUsername(username));
-    await this.login.fillPassword(resolvePassword(password));
+  'informo as credenciais do {string}',
+  async function (this: CustomWorld, userLabel: string) {
+    const { username, password } = resolveUser(userLabel);
+    await this.login.fillUsername(username);
+    await this.login.fillPassword(password);
   }
 );
 
@@ -64,7 +59,7 @@ Then(
   'devo ver uma mensagem de erro de credenciais inválidas',
   async function (this: CustomWorld) {
     const errorMessage = await this.login.getErrorMessage();
-    expect(errorMessage).toContain(ErrorMessages.invalidCredentials);
+    expect(errorMessage).toContain('Username and password do not match');
     this.lastErrorMessage = errorMessage;
   }
 );
@@ -78,7 +73,7 @@ Then(
   'devo ver uma mensagem informando que o usuário está bloqueado',
   async function (this: CustomWorld) {
     const errorMessage = await this.login.getErrorMessage();
-    expect(errorMessage).toContain(ErrorMessages.lockedUser);
+    expect(errorMessage).toContain('Sorry, this user has been locked out');
     this.lastErrorMessage = errorMessage;
   }
 );
