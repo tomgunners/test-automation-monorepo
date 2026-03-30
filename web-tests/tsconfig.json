@@ -4,7 +4,6 @@
     "module": "commonjs",
     "lib": ["ES2020", "DOM"],
     "outDir": "./dist",
-    "rootDir": "./src",
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
@@ -12,12 +11,24 @@
     "resolveJsonModule": true,
     "declaration": true,
     "sourceMap": true,
-    "baseUrl": "./src"
+    "baseUrl": ".",
+    "paths": {
+      "@automation/shared": ["../shared/src/index"]
+    }
   },
   "ts-node": {
     "transpileOnly": true,
     "files": true
   },
-  "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist", "allure-results", "allure-report", "test-results"]
+  "include": [
+    "src/**/*",
+    "../shared/src/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "allure-results",
+    "allure-report",
+    "test-results"
+  ]
 }

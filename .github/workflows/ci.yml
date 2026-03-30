@@ -2,54 +2,55 @@ name: Test Automation Pipeline
 
 on:
   push:
-    branches: [main]
+    branches: [main, develop]
   pull_request:
-    branches: [main]
+    branches: [main, develop]
   workflow_dispatch:
     inputs:
       test_suite:
-        description: 'Qual suíte executar?'
+        description: 'Suíte a executar'
         required: true
         default: 'all'
         type: choice
-        options:
-          - all
-          - web
-          - api
-          - performance
+        options: [all, web, api, performance, mobile]
       web_profile:
-        description: 'Projeto Web E2E'
+        description: 'Perfil Web E2E'
         required: false
-        default: 'default'
+        default: 'regression'
         type: choice
-        options:
-          - default
-          - regression
+        options: [default, smoke, regression]
       perf_mode:
         description: 'Modo de performance'
         required: false
-        default: 'gate'
+        default: 'informative'
         type: choice
         options:
           - gate        # quebra o pipeline se os thresholds falharem
           - informative # apenas reporta, nunca quebra
       perf_profile:
-        description: 'Projeto K6 Performance'
+        description: 'Perfil k6'
         required: false
         default: 'load'
         type: choice
-        options:
-          - load
-          - spike
-          - soak
+        options: [load, spike, soak]
 
 env:
   NODE_VERSION: '20'
 
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+  deployments: write
+
 jobs:
+  # ────────────────────────────────────────────────────────────────────────────
+  # Web, API e Performance — estratégia de matriz
+  # ────────────────────────────────────────────────────────────────────────────
   tests:
     name: ${{ matrix.name }}
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     strategy:
       fail-fast: false
@@ -58,31 +59,31 @@ jobs:
           - name: API Tests
             suite: api
             path: api-tests
-            script: test:api
 
-          - name: Web Tests (regression)
+          - name: Web Tests
             suite: web
             path: web-tests
-            script: test:web:regression
 
           - name: Performance Tests
             suite: performance
             path: performance-tests
-            script: test:perf
+
+    if: >
+      github.event_name != 'workflow_dispatch' ||
+      github.event.inputs.test_suite == 'all' ||
+      github.event.inputs.test_suite == matrix.suite
 
     steps:
-      # ─── Checkout ──────────────────────────────────────────────────────────
       - name: Checkout
         uses: actions/checkout@v4
 
-      # ─── Setup Node.js ──────────────────────────────────────────────────────
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'yarn'
+          cache: yarn
 
-      # ─── Cache node_modules ─────────────────────────────────────────────────
+      # ── Cache node_modules ─────────────────────────────────────────────────
       - name: Cache node_modules
         uses: actions/cache@v4
         id: cache-node-modules
@@ -90,27 +91,28 @@ jobs:
           path: |
             node_modules
             ${{ matrix.path }}/node_modules
+            shared/node_modules
           key: ${{ matrix.suite }}-node-modules-${{ runner.os }}-${{ hashFiles('yarn.lock') }}
-          restore-keys: |
-            ${{ matrix.suite }}-node-modules-${{ runner.os }}-
+          restore-keys: ${{ matrix.suite }}-node-modules-${{ runner.os }}-
 
-      # ─── Instalar dependências ───────────────────────────────────────────────
       - name: Instalar dependências
         if: steps.cache-node-modules.outputs.cache-hit != 'true'
         run: yarn install --frozen-lockfile
 
-      # ─── Instalar k6 (apenas performance) ───────────────────────────────────
+      # ── Infraestrutura por suite ───────────────────────────────────────────
+
       - name: Instalar k6
         if: matrix.suite == 'performance'
         run: |
-          sudo apt-get update
+          sudo apt-get update -qq
           sudo apt-get install -y gnupg ca-certificates
-          curl -fsSL https://dl.k6.io/key.gpg | sudo gpg --dearmor -o /usr/share/keyrings/k6-archive-keyring.gpg
-          echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
-          sudo apt-get update
+          curl -fsSL https://dl.k6.io/key.gpg \
+            | sudo gpg --dearmor -o /usr/share/keyrings/k6-archive-keyring.gpg
+          echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" \
+            | sudo tee /etc/apt/sources.list.d/k6.list
+          sudo apt-get update -qq
           sudo apt-get install -y k6
 
-      # ─── Cache Playwright browsers (apenas web) ──────────────────────────────
       - name: Cache Playwright browsers
         if: matrix.suite == 'web'
         uses: actions/cache@v4
@@ -118,125 +120,276 @@ jobs:
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('yarn.lock') }}
-          restore-keys: |
-            playwright-${{ runner.os }}-
+          restore-keys: playwright-${{ runner.os }}-
 
-      # ─── Instalar browsers do Playwright (apenas web) ────────────────────────
       - name: Instalar Playwright browsers
         if: matrix.suite == 'web' && steps.cache-playwright.outputs.cache-hit != 'true'
         run: npx playwright install --with-deps chromium
 
-      # ─── Instalar Allure CLI (apenas web) ────────────────────────────────────
-      - name: Instalar Allure CLI
-        if: matrix.suite == 'web'
-        run: npm install -g allure-commandline
-
-      # ─── Restaurar allure-report/history (Trend) ─────────────────────────────
-      #
-      # O allure-setup.ts segue o padrão:
-      #   restoreHistory(): copia allure-report/history → allure-results/history
-      #
-      # Por isso cacheamos allure-report/history (a FONTE), não allure-results/history.
-      # Se cacheássemos allure-results/history, o setupAllure() sobrescreveria com
-      # allure-report/history (vazio no CI) — zerando o histórico a cada run.
-      #
-      # actions/cache persiste entre runs:
-      #   key única por run_id → novo cache por execução
-      #   restore-keys sem run_id → restaura sempre o cache mais recente da suite
-      #
-      # Na primeira execução não há cache — o Trend começa a acumular
-      # a partir da segunda execução automaticamente.
-      #
-      - name: Restaurar allure-report/history
-        if: matrix.suite == 'web'
-        uses: actions/cache/restore@v4
-        with:
-          path: ${{ matrix.path }}/allure-report/history
-          key: allure-report-history-${{ matrix.suite }}-${{ github.run_id }}
-          restore-keys: |
-            allure-report-history-${{ matrix.suite }}-
-
-      # ─── Executar testes ──────────────────────────────────────────────────────
+      # ── Executar testes ────────────────────────────────────────────────────
       - name: Executar testes
-        if: >
-          github.event.inputs.test_suite == matrix.suite ||
-          github.event.inputs.test_suite == 'all' ||
-          github.event_name != 'workflow_dispatch'
         run: |
-          if [ "${{ matrix.suite }}" = "performance" ]; then
-            export BASE_URL=https://dummyjson.com
+          if [ "${{ matrix.suite }}" = "api" ]; then
+            yarn test:api
+
+          elif [ "${{ matrix.suite }}" = "web" ]; then
+            PROFILE="${{ github.event.inputs.web_profile || 'regression' }}"
+            yarn workspace web-tests cucumber-js --profile "$PROFILE"
+
+          elif [ "${{ matrix.suite }}" = "performance" ]; then
             MODE="${{ github.event.inputs.perf_mode || 'informative' }}"
             if [ "$MODE" = "informative" ]; then
               yarn workspace performance-tests test:informative
             else
               yarn workspace performance-tests test:gate
             fi
-          else
-            yarn ${{ matrix.script }}
           fi
         env:
-          BASE_URL: https://www.saucedemo.com
-          HEADLESS: 'true'
-          BROWSER: chromium
-          API_BASE_URL: https://dummyjson.com
+          # Web
+          BASE_URL:   https://www.saucedemo.com
+          HEADLESS:   'true'
+          BROWSER:    chromium
+          # API
+          API_BASE_URL:    https://dummyjson.com
+          REQUEST_TIMEOUT: 10000
+          # Performance
           STAGES_PROFILE: ${{ github.event.inputs.perf_profile || 'load' }}
-          # Expostos para o allure-setup.ts popular Environment e Executors
-          GITHUB_RUN_ID:     ${{ github.run_id }}
-          GITHUB_RUN_NUMBER: ${{ github.run_number }}
-          GITHUB_WORKFLOW:   ${{ github.workflow }}
-          GITHUB_ACTOR:      ${{ github.actor }}
-          GITHUB_SERVER_URL: ${{ github.server_url }}
-          GITHUB_REPOSITORY: ${{ github.repository }}
-          GITHUB_REF_NAME:   ${{ github.ref_name }}
-          REPORT_URL:        https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/allure-report
+          # Allure metadata
+          REPORT_URL: >-
+            https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}
 
-      # ─── Gerar relatório Allure (apenas web) ─────────────────────────────────
-      - name: Gerar relatório Allure
-        if: always() && matrix.suite == 'web'
-        run: yarn workspace web-tests allure:generate
+      # ── Upload de artefatos — Allure results por suite ─────────────────────
+      # Os allure-results são enviados separadamente para cada suite.
+      # O job publish-reports baixa, restaura o histórico e gera os reports.
 
-      # ─── Salvar allure-report/history para próxima execução (Trend) ──────────
-      # Após o allure generate, allure-report/history/ contém o histórico
-      # atualizado com os dados desta execução.
-      # if: always() garante que o histórico é salvo mesmo quando os testes falham.
-      - name: Salvar allure-report/history
-        if: always() && matrix.suite == 'web'
-        uses: actions/cache/save@v4
-        with:
-          path: ${{ matrix.path }}/allure-report/history
-          key: allure-report-history-${{ matrix.suite }}-${{ github.run_id }}
-
-      # ─── Upload de artefatos ─────────────────────────────────────────────────
-      - name: Upload artefatos
-        if: always()
+      - name: Upload Allure results – API
+        if: always() && matrix.suite == 'api'
         uses: actions/upload-artifact@v4
         with:
-          name: results-${{ matrix.suite }}-${{ github.run_id }}
-          path: |
-            ${{ matrix.path }}/allure-report/**
-            ${{ matrix.path }}/allure-results/**
-            ${{ matrix.path }}/test-results/**
-            ${{ matrix.path }}/reports/**
-            ${{ matrix.path }}/results/**
+          name: api-allure-results-${{ github.run_number }}
+          path: api-tests/allure-results/
           if-no-files-found: warn
           retention-days: 30
 
-  # ─── Publish Allure Report no GitHub Pages ───────────────────────────────────
-  publish-allure:
-    name: Publish Allure Report
-    runs-on: ubuntu-latest
-    needs: tests
-    if: always() && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
+      - name: Upload Mochawesome – API
+        if: always() && matrix.suite == 'api'
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-mochawesome-${{ github.run_number }}
+          path: api-tests/reports/
+          if-no-files-found: warn
+          retention-days: 30
 
-    permissions:
-      contents: write
-      pages: write
-      id-token: write
-      deployments: write
+      - name: Upload Allure results – Web
+        if: always() && matrix.suite == 'web'
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-allure-results-${{ github.run_number }}
+          path: web-tests/allure-results/
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Upload test-results – Web (screenshots e Cucumber HTML)
+        if: always() && matrix.suite == 'web'
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-test-results-${{ github.run_number }}
+          path: web-tests/test-results/
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Upload resultados – Performance
+        if: always() && matrix.suite == 'performance'
+        uses: actions/upload-artifact@v4
+        with:
+          name: results-performance-${{ github.run_id }}
+          path: performance-tests/results/**
+          if-no-files-found: warn
+          retention-days: 30
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # Testes Mobile — Android 14 via docker-android
+  # ────────────────────────────────────────────────────────────────────────────
+  mobile-android:
+    name: Mobile Tests – Android 14
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    env:
+      APK_VERSION: v2.0.0
+      APK_NAME:    wdio-native-demo-app.apk
+      APK_PATH:    mobile-tests/apps/wdio-native-demo-app.apk
+
+    if: >
+      github.event_name != 'workflow_dispatch' ||
+      github.event.inputs.test_suite == 'all' ||
+      github.event.inputs.test_suite == 'mobile'
 
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: yarn
+
+      - name: Cache node_modules
+        uses: actions/cache@v4
+        id: cache-node-modules-android
+        with:
+          path: |
+            node_modules
+            mobile-tests/node_modules
+            shared/node_modules
+          key: mobile-node-modules-${{ runner.os }}-${{ hashFiles('yarn.lock') }}
+          restore-keys: mobile-node-modules-${{ runner.os }}-
+
+      - name: Instalar dependências
+        if: steps.cache-node-modules-android.outputs.cache-hit != 'true'
+        run: yarn install --frozen-lockfile
+
+      # ── Configurar APK path para o docker-android ──────────────────────────
+      - name: Configurar ANDROID_APP_CONTAINER_PATH no .env
+        working-directory: mobile-tests
+        run: echo "ANDROID_APP_CONTAINER_PATH=/apps/${APK_NAME}" >> .env
+
+      # ── Cache e download do APK ────────────────────────────────────────────
+      - name: Cache APK
+        uses: actions/cache@v4
+        id: cache-apk
+        with:
+          path: mobile-tests/apps
+          key: apk-${{ runner.os }}-${{ env.APK_VERSION }}
+
+      - name: Download APK
+        if: steps.cache-apk.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p mobile-tests/apps
+          curl -L -o "$APK_PATH" \
+            "https://github.com/webdriverio/native-demo-app/releases/download/${APK_VERSION}/android.wdio.native.app.${APK_VERSION}.apk"
+
+      - name: Validar APK
+        run: |
+          if [ ! -f "$APK_PATH" ]; then
+            echo "❌ APK não encontrado em $APK_PATH"
+            exit 1
+          fi
+          echo "✅ APK encontrado:"
+          ls -lh mobile-tests/apps
+
+      # ── KVM + ADB ──────────────────────────────────────────────────────────
+      - name: Habilitar KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Instalar adb
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y android-tools-adb
+          adb version
+
+      # ── Subir docker-android via docker compose ────────────────────────────
+      - name: Iniciar docker-android (Android 14 + Appium)
+        working-directory: mobile-tests
+        run: docker compose up -d
+
+      - name: Debug APK no container
+        run: |
+          echo "=== Host ==="
+          ls -lh mobile-tests/apps
+          CONTAINER_ID=$(docker ps -q | head -n 1)
+          echo "Container ID: $CONTAINER_ID"
+          docker exec "$CONTAINER_ID" ls -lh /apps || echo "/apps não encontrado no container"
+
+      # ── Aguardar emulador e Appium ─────────────────────────────────────────
+      - name: Aguardar boot do emulador Android
+        timeout-minutes: 8
+        run: |
+          adb wait-for-device
+          until adb shell getprop sys.boot_completed 2>/dev/null | grep -m 1 '1'; do
+            echo "Aguardando boot completo..."
+            sleep 5
+          done
+          adb shell input keyevent 82
+          echo "✅ Emulador pronto"
+
+      - name: Aguardar Appium
+        working-directory: mobile-tests
+        run: node scripts/wait-for-appium.js
+        env:
+          APPIUM_HOST:    127.0.0.1
+          APPIUM_PORT:    4723
+          APPIUM_WAIT_MS: 300000
+          APPIUM_POLL_MS: 5000
+
+      # ── Executar testes ────────────────────────────────────────────────────
+      - name: Executar testes Mobile
+        working-directory: mobile-tests
+        run: yarn test:android
+        env:
+          APPIUM_HOST:              127.0.0.1
+          APPIUM_PORT:              4723
+          ANDROID_PLATFORM_VERSION: '14'
+          ANDROID_DEVICE_NAME:      emulator-5554
+          ELEMENT_TIMEOUT:          20000
+          TEST_TIMEOUT:             180000
+          APPIUM_COMMAND_TIMEOUT:   300
+          STANDARD_USER:            ${{ secrets.MOBILE_STANDARD_USER }}
+          STANDARD_PASSWORD:        ${{ secrets.MOBILE_STANDARD_PASSWORD }}
+          INVALID_USER:             aaaaaaaaaaaaaaa
+          INVALID_PASSWORD:         senhaerrada
+          TEST_ENV:                 QA
+
+      - name: Parar docker-android
+        if: always()
+        working-directory: mobile-tests
+        run: docker compose down
+
+      # ── Artefatos ──────────────────────────────────────────────────────────
+      - name: Upload Allure results – Android
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-allure-results-${{ github.run_number }}
+          path: mobile-tests/allure-results/
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Upload screenshots de falha
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-screenshots-${{ github.run_number }}
+          path: mobile-tests/reports/screenshots/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # Publicar relatórios no GitHub Pages
+  # ────────────────────────────────────────────────────────────────────────────
+  publish-reports:
+    name: Publish Reports to GitHub Pages
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: [tests, mobile-android]
+    if: always() && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ── Histórico anterior do gh-pages para manter o Trend ─────────────────
+      - name: Checkout gh-pages (histórico anterior)
+        uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          path: gh-pages-prev
+        continue-on-error: true
 
       - name: Limpar deployments antigos
         uses: strumwolf/delete-deployment-environment@v3
@@ -245,20 +398,273 @@ jobs:
           environment: github-pages
           onlyRemoveDeployments: true
 
-      - name: Download Allure report (web)
+      # ── Download dos allure-results das três suites ────────────────────────
+      - name: Download Allure results – API
         uses: actions/download-artifact@v4
         with:
-          name: results-web-${{ github.run_id }}
-          path: allure-combined
+          name: api-allure-results-${{ github.run_number }}
+          path: allure-raw/api
+        continue-on-error: true
+
+      - name: Download Allure results – Web
+        uses: actions/download-artifact@v4
+        with:
+          name: web-allure-results-${{ github.run_number }}
+          path: allure-raw/web
+        continue-on-error: true
+
+      - name: Download Allure results – Android
+        uses: actions/download-artifact@v4
+        with:
+          name: android-allure-results-${{ github.run_number }}
+          path: allure-raw/android
         continue-on-error: true
 
       - name: Listar arquivos baixados
-        run: find allure-combined -type f | head -30 || echo "Nenhum arquivo encontrado"
+        run: |
+          for suite in api web android; do
+            echo "=== allure-raw/$suite ==="
+            find "allure-raw/$suite" -type f 2>/dev/null | head -10 || echo "(vazio)"
+          done
 
-      - name: Publish no GitHub Pages
+      # ── Java + Allure CLI ──────────────────────────────────────────────────
+      - name: Setup Java (Allure)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Install Allure CLI
+        run: |
+          curl -o allure.tgz -sSLf \
+            https://github.com/allure-framework/allure2/releases/download/2.27.0/allure-2.27.0.tgz
+          sudo tar -zxf allure.tgz -C /opt
+          sudo ln -sf /opt/allure-2.27.0/bin/allure /usr/local/bin/allure
+          allure --version
+
+      # ── Restaurar histórico de Trend para cada suite ───────────────────────
+      - name: Restore Allure history – API
+        run: |
+          RESULTS_DIR="allure-raw/api"
+          HISTORY_SRC="gh-pages-prev/api/report/history"
+          if [ -d "$HISTORY_SRC" ]; then
+            mkdir -p "$RESULTS_DIR/history"
+            cp -r "$HISTORY_SRC/." "$RESULTS_DIR/history/"
+            echo "Histórico API restaurado ($(ls $RESULTS_DIR/history | wc -l) arquivos)"
+          else
+            echo "Nenhum histórico API anterior — primeiro run"
+          fi
+
+      - name: Restore Allure history – Web
+        run: |
+          RESULTS_DIR="allure-raw/web"
+          HISTORY_SRC="gh-pages-prev/web/report/history"
+          if [ -d "$HISTORY_SRC" ]; then
+            mkdir -p "$RESULTS_DIR/history"
+            cp -r "$HISTORY_SRC/." "$RESULTS_DIR/history/"
+            echo "Histórico Web restaurado ($(ls $RESULTS_DIR/history | wc -l) arquivos)"
+          else
+            echo "Nenhum histórico Web anterior — primeiro run"
+          fi
+
+      - name: Restore Allure history – Android
+        run: |
+          RESULTS_DIR="allure-raw/android"
+          HISTORY_SRC="gh-pages-prev/android/report/history"
+          if [ -d "$HISTORY_SRC" ]; then
+            mkdir -p "$RESULTS_DIR/history"
+            cp -r "$HISTORY_SRC/." "$RESULTS_DIR/history/"
+            echo "Histórico Android restaurado ($(ls $RESULTS_DIR/history | wc -l) arquivos)"
+          else
+            echo "Nenhum histórico Android anterior — primeiro run"
+          fi
+
+      # ── Gerar relatórios Allure para as três suites ───────────────────────
+      - name: Generate Allure report – API
+        run: |
+          RESULTS_DIR="allure-raw/api"
+          if [ -d "$RESULTS_DIR" ] && [ "$(ls -A $RESULTS_DIR 2>/dev/null)" ]; then
+            allure generate "$RESULTS_DIR" -o gh-pages/api/report --clean
+            echo "✅ Allure API gerado"
+          else
+            mkdir -p gh-pages/api/report
+            echo "<h2>Sem resultados API neste run</h2>" > gh-pages/api/report/index.html
+          fi
+
+      - name: Generate Allure report – Web
+        run: |
+          RESULTS_DIR="allure-raw/web"
+          if [ -d "$RESULTS_DIR" ] && [ "$(ls -A $RESULTS_DIR 2>/dev/null)" ]; then
+            allure generate "$RESULTS_DIR" -o gh-pages/web/report --clean
+            echo "✅ Allure Web gerado"
+          else
+            mkdir -p gh-pages/web/report
+            echo "<h2>Sem resultados Web neste run</h2>" > gh-pages/web/report/index.html
+          fi
+
+      - name: Generate Allure report – Android
+        run: |
+          RESULTS_DIR="allure-raw/android"
+          if [ -d "$RESULTS_DIR" ] && [ "$(ls -A $RESULTS_DIR 2>/dev/null)" ]; then
+            allure generate "$RESULTS_DIR" -o gh-pages/android/report --clean
+            echo "✅ Allure Android gerado"
+          else
+            mkdir -p gh-pages/android/report
+            echo "<h2>Sem resultados Android neste run</h2>" > gh-pages/android/report/index.html
+          fi
+
+      # ── Status dos jobs para o dashboard ──────────────────────────────────
+      - name: Resolve job statuses
+        id: statuses
+        run: |
+          MATRIX_STATUS="${{ needs.tests.result }}"
+          ANDROID_STATUS="${{ needs.mobile-android.result }}"
+
+          badge() {
+            case $1 in
+              success)  echo "Passou"  ;;
+              failure)  echo "Falhou"  ;;
+              skipped)  echo "Pulado"  ;;
+              *)        echo "⚠️ $1"     ;;
+            esac
+          }
+
+          echo "matrix_badge=$(badge $MATRIX_STATUS)"   >> $GITHUB_OUTPUT
+          echo "android_badge=$(badge $ANDROID_STATUS)" >> $GITHUB_OUTPUT
+          echo "matrix_status=$MATRIX_STATUS"           >> $GITHUB_OUTPUT
+          echo "android_status=$ANDROID_STATUS"         >> $GITHUB_OUTPUT
+
+      # ── Dashboard index.html ─────────────────────────────────────────────
+      - name: Generate index page
+        run: |
+          RUN_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          COMMIT_URL="https://github.com/${{ github.repository }}/commit/${{ github.sha }}"
+          SHORT_SHA="${{ github.sha }}"
+          SHORT_SHA="${SHORT_SHA:0:7}"
+          BRANCH="${{ github.ref_name }}"
+          RUN_NUM="${{ github.run_number }}"
+          DATE=$(date -u '+%d/%m/%Y %H:%M UTC')
+          MATRIX_STATUS="${{ steps.statuses.outputs.matrix_status }}"
+          AND_STATUS="${{ steps.statuses.outputs.android_status }}"
+
+          color() {
+            case $1 in
+              success) echo "#22c55e" ;;
+              failure) echo "#ef4444" ;;
+              skipped) echo "#94a3b8" ;;
+              *)       echo "#f59e0b" ;;
+            esac
+          }
+
+          mkdir -p gh-pages
+          cat > gh-pages/index.html <<HTML
+          <!DOCTYPE html>
+          <html lang="pt-BR">
+          <head>
+            <meta charset="UTF-8" />
+            <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+            <title>Test Reports — Run #${RUN_NUM}</title>
+            <style>
+              *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+              body {
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+                background: #0f172a; color: #e2e8f0;
+                min-height: 100vh; display: flex; flex-direction: column;
+                align-items: center; padding: 48px 16px;
+              }
+              .header { text-align: center; margin-bottom: 40px; }
+              .header h1 { font-size: 2rem; font-weight: 700; color: #f8fafc; margin-bottom: 8px; }
+              .header p  { color: #94a3b8; font-size: 0.9rem; line-height: 1.6; }
+              .header a  { color: #60a5fa; text-decoration: none; }
+              .header a:hover { text-decoration: underline; }
+              .grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+                gap: 20px; width: 100%; max-width: 860px;
+              }
+              .card {
+                background: #1e293b; border-radius: 12px; padding: 28px 24px;
+                border: 1px solid #334155; display: flex; flex-direction: column;
+                gap: 16px; transition: transform 0.15s, border-color 0.15s;
+              }
+              .card:hover { transform: translateY(-2px); border-color: #475569; }
+              .card-title { font-size: 1rem; font-weight: 600; color: #f1f5f9; display: flex; align-items: center; gap: 10px; }
+              .card-icon  { font-size: 1.4rem; }
+              .status-badge { display: inline-block; padding: 4px 12px; border-radius: 99px; font-size: 0.78rem; font-weight: 600; color: #fff; }
+              .btn {
+                display: inline-block; margin-top: auto; padding: 10px 20px;
+                background: #3b82f6; color: #fff; border-radius: 8px;
+                text-decoration: none; font-size: 0.875rem; font-weight: 500;
+                text-align: center; transition: background 0.15s;
+              }
+              .btn:hover { background: #2563eb; }
+              .footer { margin-top: 48px; color: #475569; font-size: 0.8rem; text-align: center; }
+            </style>
+          </head>
+          <body>
+            <div class="header">
+              <h1>📊 Test Reports</h1>
+              <p>
+                Run <a href="${RUN_URL}">#${RUN_NUM}</a> &nbsp;·&nbsp;
+                Branch <strong>${BRANCH}</strong> &nbsp;·&nbsp;
+                Commit <a href="${COMMIT_URL}">${SHORT_SHA}</a>
+              </p>
+              <p style="margin-top:4px">${DATE}</p>
+            </div>
+
+            <div class="grid">
+              <div class="card">
+                <div class="card-title"><span class="card-icon">🔌</span> API Tests</div>
+                <span class="status-badge" style="background:$(color $MATRIX_STATUS)">
+                  ${{ steps.statuses.outputs.matrix_badge }}
+                </span>
+                <p style="color:#94a3b8;font-size:0.85rem">
+                  Testes de contrato e integração via REST.<br/>
+                  Report gerado pelo Allure.
+                </p>
+                <a class="btn" href="api/report/index.html">Ver Report →</a>
+              </div>
+
+              <div class="card">
+                <div class="card-title"><span class="card-icon">🌐</span> Web E2E Tests</div>
+                <span class="status-badge" style="background:$(color $MATRIX_STATUS)">
+                  ${{ steps.statuses.outputs.matrix_badge }}
+                </span>
+                <p style="color:#94a3b8;font-size:0.85rem">
+                  Testes E2E com Playwright + Cucumber.<br/>
+                  Report gerado pelo Allure.
+                </p>
+                <a class="btn" href="web/report/index.html">Ver Report →</a>
+              </div>
+
+              <div class="card">
+                <div class="card-title"><span class="card-icon">🤖</span> Android Tests</div>
+                <span class="status-badge" style="background:$(color $AND_STATUS)">
+                  ${{ steps.statuses.outputs.android_badge }}
+                </span>
+                <p style="color:#94a3b8;font-size:0.85rem">
+                  Testes E2E no emulador Android 14 via Appium.<br/>
+                  Report gerado pelo Allure.
+                </p>
+                <a class="btn" href="android/report/index.html">Ver Report →</a>
+              </div>
+            </div>
+
+            <div class="footer">
+              Gerado automaticamente pelo GitHub Actions &nbsp;·&nbsp;
+              <a href="${RUN_URL}" style="color:#475569">Ver workflow</a>
+            </div>
+          </body>
+          </html>
+          HTML
+
+      - name: Listar arquivos do site
+        run: find gh-pages -type f | sort | head -50
+
+      - name: Publish to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: allure-combined/allure-report
-          destination_dir: allure-report
+          publish_dir: gh-pages
           keep_files: false
+          commit_message: "ci: deploy reports — run #${{ github.run_number }} (${{ github.sha }})"

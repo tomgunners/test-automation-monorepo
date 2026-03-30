@@ -11,12 +11,8 @@
  *   yarn test:smoke       → apenas @smoke
  *   yarn test:regression  → apenas @regression
  *
- * Ou passando a tag diretamente:
  *   cd web-tests && npx cucumber-js --tags "@smoke"
  *   cd web-tests && npx cucumber-js --tags "@regression and not @wip"
- *
- * Nota: o formatter `verbose` foi removido no @cucumber/cucumber v10.
- * Usando `progress` (steps em tempo real) + `summary` (resultado completo ao final).
  */
 
 const BASE_FORMAT = [
@@ -27,39 +23,37 @@ const BASE_FORMAT = [
   'allure-cucumberjs/reporter',
 ];
 
-const BASE_FORMAT_OPTIONS = { resultsDir: 'allure-results' };
-
 const BASE_REQUIRES = {
-  paths: ['src/features/*.feature'],
-  require: ['src/hooks/*.ts', 'src/steps/*.ts'],
-  requireModule: ["ts-node/register"],
-  format: BASE_FORMAT,
-  formatOptions: BASE_FORMAT_OPTIONS,
-  publish: false,
+  paths:         ['src/features/*.feature'],
+  require:       ['src/hooks/*.ts', 'src/steps/*.ts'],
+  requireModule: ['ts-node/register'],
+  format:        BASE_FORMAT,
+  formatOptions: { resultsDir: 'allure-results' },
+  publish:       false,
 };
 
 module.exports = {
-  // ── Perfil padrão: todos os cenários ─────────────────────────────────────
+  // ── Perfil padrão: todos os cenários ───────────────────────────────────────
   default: {
     ...BASE_REQUIRES,
     retry: 1,
   },
 
-  // ── Smoke: cenários críticos, execução rápida (ex.: validação pós-deploy) ─
+  // ── Smoke: cenários críticos, execução rápida (ex.: validação pós-deploy) ──
   smoke: {
     ...BASE_REQUIRES,
-    tags: '@smoke',
+    tags:  '@smoke',
     retry: 0,
   },
 
-  // ── Regression: cobertura completa (ex.: antes de releases) ──────────────
+  // ── Regression: cobertura completa (ex.: antes de releases) ────────────────
   regression: {
     ...BASE_REQUIRES,
-    tags: '@regression',
+    tags:  '@regression',
     retry: 1,
   },
 
-  // ── Allure: igual ao default, sem retry (útil para relatório estável) ────
+  // ── Allure: igual ao default, sem retry (relatório mais estável) ────────────
   allure: {
     ...BASE_REQUIRES,
     retry: 0,

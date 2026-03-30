@@ -4,7 +4,6 @@
     "module": "commonjs",
     "lib": ["ES2020"],
     "outDir": "./dist",
-    "rootDir": "./src",
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
@@ -12,12 +11,22 @@
     "resolveJsonModule": true,
     "baseUrl": ".",
     "paths": {
-      "@client/*": ["src/client/*"],
+      "@client/*":  ["src/client/*"],
       "@schemas/*": ["src/schemas/*"],
-      "@utils/*": ["src/utils/*"],
-      "@config/*": ["src/config/*"]
+      "@utils/*":   ["src/utils/*"],
+      "@config/*":  ["src/config/*"],
+      "@automation/shared": ["../shared/src/index"]
     }
   },
-  "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist", "reports"]
+  "include": [
+    "src/**/*",
+    "../shared/src/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "reports",
+    "allure-results",
+    "allure-report"
+  ]
 }

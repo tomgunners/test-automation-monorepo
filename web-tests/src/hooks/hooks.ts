@@ -8,22 +8,26 @@ import {
   Status,
 } from '@cucumber/cucumber';
 
-import { Browser, BrowserContext, Page, chromium, firefox, webkit } from 'playwright';
+import { chromium, firefox, webkit, type Browser } from 'playwright';
 import { CustomWorld } from './world';
 import { config }      from '../config/env.config';
-import { setupAllure } from '../utils/allure-setup';
+import { setupWebAllure } from '../utils/allure-setup';
 
-import * as fs   from 'fs';
-import * as path from 'path';
+import fs   from 'fs';
+import path from 'path';
 
 setWorldConstructor(CustomWorld);
 setDefaultTimeout(config.timeouts.default);
 
 let sharedBrowser: Browser;
 
-// ── Limpeza completa de allure-results ───────────────────────────────────────
-// Remove TUDO de execuções anteriores. O setupAllure() chamado logo após
-// restaura history/ de allure-report/history e reescreve os metadados.
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+/**
+ * Remove TUDO de execuções anteriores e recria a pasta vazia.
+ * setupWebAllure() chamado logo após restaura history/ e reescreve os metadados,
+ * portanto a ordem importa: clear ANTES de setup.
+ */
 function clearAllureResults(): void {
   const dir = 'allure-results';
   if (fs.existsSync(dir)) {
@@ -32,37 +36,28 @@ function clearAllureResults(): void {
   fs.mkdirSync(dir, { recursive: true });
 }
 
+function ensureDir(dir: string): void {
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+}
+
+function resolveBrowserType() {
+  if (config.browser.type === 'firefox') return firefox;
+  if (config.browser.type === 'webkit')  return webkit;
+  return chromium;
+}
+
 // ── BeforeAll ─────────────────────────────────────────────────────────────────
 // Timeout explícito obrigatório — setDefaultTimeout não se aplica a BeforeAll.
-//
-// Ordem das operações:
-//   1. clearAllureResults() — apaga resultados anteriores (pasta recriada vazia)
-//   2. setupAllure()        — restaura history/ + escreve environment, executor, categories
-//   3. Cria demais diretórios e inicia o browser
-//
-// A ordem importa: se setupAllure() viesse antes, o clearAllureResults()
-// apagaria environment.properties, executor.json e categories.json recém-criados.
 BeforeAll({ timeout: 60_000 }, async function () {
-  // 1. Limpa tudo — pasta allure-results/ recriada vazia
   clearAllureResults();
+  setupWebAllure();
 
-  // 2. Setup do Allure: restaura history/ de allure-report/history + gera metadados
-  setupAllure();
+  ensureDir('test-results');
+  ensureDir('test-results/screenshots');
 
-  // 3. Cria diretórios de saída
-  for (const dir of ['test-results', 'test-results/screenshots']) {
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-  }
-
-  // 4. Inicia o browser
-  const browserType =
-    config.browser.type === 'firefox'
-      ? firefox
-      : config.browser.type === 'webkit'
-        ? webkit
-        : chromium;
-
-  sharedBrowser = await browserType.launch({
+  sharedBrowser = await resolveBrowserType().launch({
     headless: config.browser.headless,
     slowMo:   config.browser.slowMo,
     args:     ['--start-maximized'],

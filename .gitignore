@@ -1,36 +1,58 @@
-# ─── Dependências ─────────────────────────────────────────────────────────────
+# ── Dependências ──────────────────────────────────────────────────────────────
 node_modules/
-api-tests/node_modules/
-web-tests/node_modules/
-mobile-tests/node_modules/
-performance-tests/node_modules/
+.yarn/cache
+.yarn/unplugged
+.yarn/build-state.yml
+.yarn/install-state.gz
 
-# ─── Relatórios e resultados ──────────────────────────────────────────────────
-api-tests/reports/
-mobile-tests/reports/
-mobile-tests/allure-results/
-mobile-tests/allure-report/
-performance-tests/results/*
-web-tests/allure-results/
-web-tests/allure-report/
-web-tests/test-results/
+# ── Build ─────────────────────────────────────────────────────────────────────
+dist/
 
-# ─── IDEs ─────────────────────────────────────────────────────────────────────
-.vscode/
+# ── Relatórios e resultados de testes ─────────────────────────────────────────
+allure-results/
+allure-report/
+test-results/
+reports/
+results/
+
+# ── Cobertura ─────────────────────────────────────────────────────────────────
+coverage/
+.nyc_output/
+
+# ── Ambiente ──────────────────────────────────────────────────────────────────
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# ── IDEs e editores ───────────────────────────────────────────────────────────
 .idea/
-*.swp
-*.swo
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
 .DS_Store
 Thumbs.db
 
-# ─── Logs ─────────────────────────────────────────────────────────────────────
+# ── Logs ─────────────────────────────────────────────────────────────────────
 *.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# ─── Mobile Apps (binários grandes) ──────────────────────────────────────────
-mobile-tests/apps/*.apk
+# ── Playwright ────────────────────────────────────────────────────────────────
+playwright-report/
+test-results/
+blob-report/
+
+# ── k6 ────────────────────────────────────────────────────────────────────────
+results/
+
+# ── Mobile ────────────────────────────────────────────────────────────────────
+apps/
+reports/screenshots/
 
 # ─── Limpeza do Projeto  ──────────────────────────────────────────
 clean.ps1

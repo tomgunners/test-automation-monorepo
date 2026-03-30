@@ -3,11 +3,10 @@ import { BasePage } from './base.page';
 import { CheckoutLocators } from '../locators/checkout.locators';
 
 export interface CheckoutInfo {
-  firstName: string;
-  lastName: string;
+  firstName:  string;
+  lastName:   string;
   postalCode: string;
 }
-
 
 export class CheckoutPage extends BasePage {
   constructor(page: Page) {
@@ -15,7 +14,8 @@ export class CheckoutPage extends BasePage {
   }
 
   // ─── Step 1: Informações pessoais ─────────────────────────────────────────
-  /** Preenche campo por campo — usado pelos steps do Cucumber */
+
+  /** Preenche campo por campo — exposto para uso granular nos steps do Cucumber */
   async fillFirstName(firstName: string): Promise<void> {
     await this.page.fill(CheckoutLocators.firstNameInput, firstName);
   }
@@ -32,12 +32,13 @@ export class CheckoutPage extends BasePage {
     await this.page.click(CheckoutLocators.continueButton);
   }
 
-async submitCheckoutInfo(info: CheckoutInfo): Promise<void> {
-  await this.fillFirstName(info.firstName);
-  await this.fillLastName(info.lastName);
-  await this.fillPostalCode(info.postalCode);
-  await this.clickContinue();
-}
+  /** Preenche e submete o formulário de informações em uma única chamada. */
+  async submitCheckoutInfo(info: CheckoutInfo): Promise<void> {
+    await this.fillFirstName(info.firstName);
+    await this.fillLastName(info.lastName);
+    await this.fillPostalCode(info.postalCode);
+    await this.clickContinue();
+  }
 
   async getErrorMessage(): Promise<string> {
     await this.waitForElement(CheckoutLocators.errorMessage);

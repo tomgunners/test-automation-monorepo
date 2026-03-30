@@ -6,10 +6,10 @@
   "scripts": {
     "test:gate": "node scripts/k6-runner.js src/scenarios/products.test.js",
     "test:informative": "node scripts/k6-runner.js --no-thresholds src/scenarios/products.test.js",
-    "test:load": "cross-env STAGES_PROFILE=load  node scripts/k6-runner.js src/scenarios/products.test.js",
+    "test:load": "cross-env STAGES_PROFILE=load node scripts/k6-runner.js src/scenarios/products.test.js",
     "test:spike": "cross-env STAGES_PROFILE=spike node scripts/k6-runner.js src/scenarios/products.test.js",
-    "test:soak": "cross-env STAGES_PROFILE=soak  node scripts/k6-runner.js src/scenarios/products.test.js",
-    "test:report": "node src/utils/generate-report.js && start results/report.html",
+    "test:soak": "cross-env STAGES_PROFILE=soak node scripts/k6-runner.js src/scenarios/products.test.js",
+    "test:report": "node src/utils/generate-report.js && open-cli results/report.html",
     "clean": "rimraf results"
   },
   "devDependencies": {

@@ -4,10 +4,11 @@
   "description": "Monorepo de automação de testes: Web, API, Performance e Mobile",
   "private": true,
   "workspaces": [
+    "shared",
     "web-tests",
     "api-tests",
-    "performance-tests",
-    "mobile-tests"
+    "mobile-tests",
+    "performance-tests"
   ],
   "resolutions": {
     "expect-webdriverio": "5.6.4"
@@ -20,6 +21,7 @@
     "test:web:allure": "yarn workspace web-tests report:allure",
     "test:api": "yarn workspace api-tests test",
     "test:api:report": "yarn workspace api-tests test:report",
+    "test:api:allure": "yarn workspace api-tests report:allure",
     "test:perf": "yarn workspace performance-tests test:gate",
     "test:perf:informative": "yarn workspace performance-tests test:informative",
     "test:perf:spike": "yarn workspace performance-tests test:spike",
@@ -27,10 +29,11 @@
     "test:perf:report": "yarn workspace performance-tests test:report",
     "test:mobile": "yarn workspace mobile-tests test",
     "test:mobile:allure": "yarn workspace mobile-tests report:allure",
-    "test:all": "yarn test:web && yarn test:api && yarn test:perf:informative && yarn test:mobile",
+    "test:all": "yarn test:web && yarn test:api && yarn test:mobile && yarn test:perf:informative ",
     "lint": "yarn workspaces run lint",
+    "typecheck": "yarn workspaces run typecheck",
     "clean": "yarn workspaces run clean",
-    "postinstall": "playwright install"
+    "playwright:install": "yarn workspace web-tests playwright:install"
   },
   "devDependencies": {
     "ts-node": "^10.9.2",

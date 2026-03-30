@@ -1,15 +1,27 @@
-import * as dotenv from 'dotenv';
-import * as path from 'path';
-import * as fs from 'fs';
+import fs from 'fs';
+import path from 'path';
+import { setupApiAllure } from '@utils/allure-setup';
 
-dotenv.config({ path: path.resolve(__dirname, '../../.env') });
+// ── Diretórios de saída ───────────────────────────────────────────────────────
+const OUTPUT_DIRS = [
+  path.resolve(__dirname, '../../reports'),
+  path.resolve(__dirname, '../../allure-results'),
+];
 
-const reportsDir = path.resolve(__dirname, '../../reports');
-if (!fs.existsSync(reportsDir)) {
-  fs.mkdirSync(reportsDir, { recursive: true });
+for (const dir of OUTPUT_DIRS) {
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
 }
 
-process.on('exit', function () {
+// ── Allure ───────────────────────────────────────────────────────────────────
+// Inicializa environment.properties, executor.json e categories.json
+// antes do primeiro teste ser executado pelo Mocha.
+setupApiAllure();
+
+// ── Finalização ───────────────────────────────────────────────────────────────
+process.on('exit', () => {
   console.log('\nSuíte de testes API finalizada.');
-  console.log('Execute o comando: [yarn test:api:report] para acessar o relatório');
+  console.log('  Mochawesome : [yarn test:report]       → reports/api-report.html');
+  console.log('  Allure      : [yarn report:allure]     → relatório interativo');
 });

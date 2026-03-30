@@ -1,0 +1,56 @@
+# docker-compose.yml — Ambiente local com docker-android
+#
+# Sobe o emulador Android 14 + servidor Appium num único container,
+# espelhando exatamente o ambiente de CI (GitHub Actions).
+#
+# Pré-requisitos (Windows/WSL2):
+#   - Docker Desktop instalado com backend WSL2
+#   - Virtualização aninhada habilitada — crie/edite %USERPROFILE%\.wslconfig:
+#
+#       [wsl2]
+#       nestedVirtualization=true
+#
+#     Reinicie o WSL: wsl --shutdown
+#
+#   - KVM habilitado no WSL2 — rode UMA VEZ no terminal WSL:
+#
+#       sudo usermod -aG kvm $USER
+#       sudo chmod 666 /dev/kvm
+#
+#     Verifique: ls -l /dev/kvm  →  crw-rw-rw- root kvm ...
+#
+#   - APK em mobile-tests/apps/wdio-native-demo-app.apk
+#
+# Uso:
+#   docker compose up -d          # inicia em background
+#   docker compose logs -f        # acompanha logs (aguarde "Appium is running")
+#   docker compose down           # encerra e remove o container
+
+services:
+  android:
+    image: budtmo/docker-android:emulator_14.0
+    container_name: mobile-tests-android-1
+    privileged: true
+    ports:
+      - "6080:6080"   
+      - "4723:4723"   
+      - "5555:5555"   
+    environment:
+      - EMULATOR_DEVICE=Samsung Galaxy S10
+      - WEB_VNC=true
+      - APPIUM=true
+      - MEMORY=4096
+      - DATAPARTITION=4096
+      - EMULATOR_ARGS=-no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot -no-accel
+    volumes:
+      # APK montado em /apps — referenciado por ANDROID_APP_CONTAINER_PATH no .env
+      - ./apps:/apps
+    devices:
+      - /dev/kvm:/dev/kvm
+    shm_size: "2gb"
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:4723/status"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 120s

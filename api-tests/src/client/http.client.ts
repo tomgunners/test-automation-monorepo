@@ -1,4 +1,4 @@
-import supertest, { Test, Response } from 'supertest';
+import supertest, { Response } from 'supertest';
 import { apiConfig } from '@config/api.config';
 
 export abstract class HttpClient {

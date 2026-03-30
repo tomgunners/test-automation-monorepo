@@ -1,0 +1,9 @@
+{
+  "extends": ["../.eslintrc.json"],
+  "globals": {
+    "browser": "readonly",
+    "$": "readonly",
+    "$$": "readonly",
+    "expect": "readonly"
+  }
+}
