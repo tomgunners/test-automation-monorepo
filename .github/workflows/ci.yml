@@ -68,10 +68,9 @@ jobs:
             suite: performance
             path: performance-tests
 
-    if: >
-      github.event_name != 'workflow_dispatch' ||
-      github.event.inputs.test_suite == 'all' ||
-      github.event.inputs.test_suite == matrix.suite
+    # NOTA: o contexto `matrix` não está disponível em if de nível de job
+    # quando se usa strategy/matrix. A filtragem por suite é feita no
+    # step "Executar testes", onde o contexto matrix já está disponível.
 
     steps:
       - name: Checkout
@@ -127,7 +126,12 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       # ── Executar testes ────────────────────────────────────────────────────
+      # O if aqui (step level) é onde matrix.suite pode ser usado com segurança.
       - name: Executar testes
+        if: >
+          github.event_name != 'workflow_dispatch' ||
+          github.event.inputs.test_suite == 'all' ||
+          github.event.inputs.test_suite == matrix.suite
         run: |
           if [ "${{ matrix.suite }}" = "api" ]; then
             yarn test:api
