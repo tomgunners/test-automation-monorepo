@@ -1,0 +1,1 @@
+[{"values":["Linux 6.17.0-1008-azure"],"name":"OS"},{"values":["v20.20.1"],"name":"Node.Version"},{"values":["CI/CD"],"name":"Execution.Type"},{"values":["QA"],"name":"Environment"},{"values":["runnervmrg6be"],"name":"Machine"},{"values":["https://dummyjson.com"],"name":"API.Base.URL"},{"values":["10000ms"],"name":"Request.Timeout"},{"values":["API"],"name":"Project.Type"}]

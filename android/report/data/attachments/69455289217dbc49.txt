@@ -1,0 +1,6 @@
+Mensagem: Can't call $$ on element with selector "id=com.wdiodemoapp:id/parentPanel" because element wasn't found
+
+Stack:
+Error: Can't call $$ on element with selector "id=com.wdiodemoapp:id/parentPanel" because element wasn't found
+    at async LoginScreen.verifyLoginSuccess (/home/runner/work/test-automation-monorepo/test-automation-monorepo/mobile-tests/src/pages/login.screen.ts:20:26)
+    at async Context.<anonymous> (/home/runner/work/test-automation-monorepo/test-automation-monorepo/mobile-tests/src/tests/login.spec.ts:16:5)
