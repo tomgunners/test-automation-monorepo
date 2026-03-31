@@ -1,3 +1,20 @@
+# ── Orquestrador principal ────────────────────────────────────────────────────
+#
+# Chama os 4 workflows reutilizáveis em paralelo e, ao final, publica os
+# relatórios Allure no GitHub Pages com status individual por suite.
+#
+# Cada suite tem seu próprio job (não mais uma matriz compartilhada), o que
+# permite ler needs.<suite>.result individualmente — corrigindo o bug onde
+# API e Web mostravam "Falhou" quando apenas o Mobile falhava.
+#
+# Estrutura:
+#   .github/workflows/
+#   ├── ci.yml                  ← este arquivo (orquestrador)
+#   ├── api-tests.yml           ← suite API
+#   ├── web-tests.yml           ← suite Web E2E
+#   ├── performance-tests.yml   ← suite Performance (k6)
+#   └── mobile-tests.yml        ← suite Mobile (Android 14)
+
 name: Test Automation Pipeline
 
 on:
@@ -12,7 +29,7 @@ on:
         required: true
         default: 'all'
         type: choice
-        options: [all, web, api, performance, mobile]
+        options: [all, api, web, performance, mobile]
       web_profile:
         description: 'Perfil Web E2E'
         required: false
@@ -34,9 +51,6 @@ on:
         type: choice
         options: [load, spike, soak]
 
-env:
-  NODE_VERSION: '20'
-
 permissions:
   contents: write
   pages: write
@@ -44,343 +58,56 @@ permissions:
   deployments: write
 
 jobs:
-  # ────────────────────────────────────────────────────────────────────────────
-  # Web, API e Performance — estratégia de matriz
-  # ────────────────────────────────────────────────────────────────────────────
-  tests:
-    name: ${{ matrix.name }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
+  # ── API Tests ───────────────────────────────────────────────────────────────
+  api-tests:
+    name: API Tests
+    if: >
+      github.event_name != 'workflow_dispatch' ||
+      github.event.inputs.test_suite == 'all' ||
+      github.event.inputs.test_suite == 'api'
+    uses: ./.github/workflows/api-tests.yml
 
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - name: API Tests
-            suite: api
-            path: api-tests
+  # ── Web E2E Tests ───────────────────────────────────────────────────────────
+  web-tests:
+    name: Web E2E Tests
+    if: >
+      github.event_name != 'workflow_dispatch' ||
+      github.event.inputs.test_suite == 'all' ||
+      github.event.inputs.test_suite == 'web'
+    uses: ./.github/workflows/web-tests.yml
+    with:
+      profile: ${{ github.event.inputs.web_profile || 'regression' }}
 
-          - name: Web Tests
-            suite: web
-            path: web-tests
+  # ── Performance Tests ───────────────────────────────────────────────────────
+  performance-tests:
+    name: Performance Tests
+    if: >
+      github.event_name != 'workflow_dispatch' ||
+      github.event.inputs.test_suite == 'all' ||
+      github.event.inputs.test_suite == 'performance'
+    uses: ./.github/workflows/performance-tests.yml
+    with:
+      perf_mode:    ${{ github.event.inputs.perf_mode    || 'informative' }}
+      perf_profile: ${{ github.event.inputs.perf_profile || 'load' }}
 
-          - name: Performance Tests
-            suite: performance
-            path: performance-tests
-
-    # NOTA: o contexto `matrix` não está disponível em if de nível de job
-    # quando se usa strategy/matrix. A filtragem por suite é feita no
-    # step "Executar testes", onde o contexto matrix já está disponível.
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: yarn
-
-      # ── Cache node_modules ─────────────────────────────────────────────────
-      - name: Cache node_modules
-        uses: actions/cache@v4
-        id: cache-node-modules
-        with:
-          path: |
-            node_modules
-            ${{ matrix.path }}/node_modules
-            shared/node_modules
-          key: ${{ matrix.suite }}-node-modules-${{ runner.os }}-${{ hashFiles('yarn.lock') }}
-          restore-keys: ${{ matrix.suite }}-node-modules-${{ runner.os }}-
-
-      - name: Instalar dependências
-        if: steps.cache-node-modules.outputs.cache-hit != 'true'
-        run: yarn install --frozen-lockfile
-
-      # ── Infraestrutura por suite ───────────────────────────────────────────
-
-      - name: Instalar k6
-        if: matrix.suite == 'performance'
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y gnupg ca-certificates
-          curl -fsSL https://dl.k6.io/key.gpg \
-            | sudo gpg --dearmor -o /usr/share/keyrings/k6-archive-keyring.gpg
-          echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" \
-            | sudo tee /etc/apt/sources.list.d/k6.list
-          sudo apt-get update -qq
-          sudo apt-get install -y k6
-
-      - name: Cache Playwright browsers
-        if: matrix.suite == 'web'
-        uses: actions/cache@v4
-        id: cache-playwright
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ hashFiles('yarn.lock') }}
-          restore-keys: playwright-${{ runner.os }}-
-
-      - name: Instalar Playwright browsers
-        if: matrix.suite == 'web' && steps.cache-playwright.outputs.cache-hit != 'true'
-        run: npx playwright install --with-deps chromium
-
-      # ── Executar testes ────────────────────────────────────────────────────
-      # O if aqui (step level) é onde matrix.suite pode ser usado com segurança.
-      - name: Executar testes
-        if: >
-          github.event_name != 'workflow_dispatch' ||
-          github.event.inputs.test_suite == 'all' ||
-          github.event.inputs.test_suite == matrix.suite
-        run: |
-          if [ "${{ matrix.suite }}" = "api" ]; then
-            yarn test:api
-
-          elif [ "${{ matrix.suite }}" = "web" ]; then
-            PROFILE="${{ github.event.inputs.web_profile || 'regression' }}"
-            yarn workspace web-tests cucumber-js --profile "$PROFILE"
-
-          elif [ "${{ matrix.suite }}" = "performance" ]; then
-            MODE="${{ github.event.inputs.perf_mode || 'informative' }}"
-            if [ "$MODE" = "informative" ]; then
-              yarn workspace performance-tests test:informative
-            else
-              yarn workspace performance-tests test:gate
-            fi
-          fi
-        env:
-          # Web
-          BASE_URL:   https://www.saucedemo.com
-          HEADLESS:   'true'
-          BROWSER:    chromium
-          # API
-          API_BASE_URL:    https://dummyjson.com
-          REQUEST_TIMEOUT: 10000
-          # Performance
-          STAGES_PROFILE: ${{ github.event.inputs.perf_profile || 'load' }}
-          # Allure metadata
-          REPORT_URL: >-
-            https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}
-
-      # ── Upload de artefatos — Allure results por suite ─────────────────────
-      # Os allure-results são enviados separadamente para cada suite.
-      # O job publish-reports baixa, restaura o histórico e gera os reports.
-
-      - name: Upload Allure results – API
-        if: always() && matrix.suite == 'api'
-        uses: actions/upload-artifact@v4
-        with:
-          name: api-allure-results-${{ github.run_number }}
-          path: api-tests/allure-results/
-          if-no-files-found: warn
-          retention-days: 30
-
-      - name: Upload Mochawesome – API
-        if: always() && matrix.suite == 'api'
-        uses: actions/upload-artifact@v4
-        with:
-          name: api-mochawesome-${{ github.run_number }}
-          path: api-tests/reports/
-          if-no-files-found: warn
-          retention-days: 30
-
-      - name: Upload Allure results – Web
-        if: always() && matrix.suite == 'web'
-        uses: actions/upload-artifact@v4
-        with:
-          name: web-allure-results-${{ github.run_number }}
-          path: web-tests/allure-results/
-          if-no-files-found: warn
-          retention-days: 30
-
-      - name: Upload test-results – Web (screenshots e Cucumber HTML)
-        if: always() && matrix.suite == 'web'
-        uses: actions/upload-artifact@v4
-        with:
-          name: web-test-results-${{ github.run_number }}
-          path: web-tests/test-results/
-          if-no-files-found: warn
-          retention-days: 30
-
-      - name: Upload resultados – Performance
-        if: always() && matrix.suite == 'performance'
-        uses: actions/upload-artifact@v4
-        with:
-          name: results-performance-${{ github.run_id }}
-          path: performance-tests/results/**
-          if-no-files-found: warn
-          retention-days: 30
-
-  # ────────────────────────────────────────────────────────────────────────────
-  # Testes Mobile — Android 14 via docker-android
-  # ────────────────────────────────────────────────────────────────────────────
+  # ── Mobile Tests ─────────────────────────────────────────────────────────────
   mobile-android:
-    name: Mobile Tests – Android 14
-    runs-on: ubuntu-latest
-    timeout-minutes: 60
-
-    env:
-      APK_VERSION: v2.0.0
-      APK_NAME:    wdio-native-demo-app.apk
-      APK_PATH:    mobile-tests/apps/wdio-native-demo-app.apk
-
+    name: Mobile Tests
     if: >
       github.event_name != 'workflow_dispatch' ||
       github.event.inputs.test_suite == 'all' ||
       github.event.inputs.test_suite == 'mobile'
+    uses: ./.github/workflows/mobile-tests.yml
 
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: yarn
-
-      - name: Cache node_modules
-        uses: actions/cache@v4
-        id: cache-node-modules-android
-        with:
-          path: |
-            node_modules
-            mobile-tests/node_modules
-            shared/node_modules
-          key: mobile-node-modules-${{ runner.os }}-${{ hashFiles('yarn.lock') }}
-          restore-keys: mobile-node-modules-${{ runner.os }}-
-
-      - name: Instalar dependências
-        if: steps.cache-node-modules-android.outputs.cache-hit != 'true'
-        run: yarn install --frozen-lockfile
-
-      # ── Configurar APK path para o docker-android ──────────────────────────
-      - name: Configurar ANDROID_APP_CONTAINER_PATH no .env
-        working-directory: mobile-tests
-        run: echo "ANDROID_APP_CONTAINER_PATH=/apps/${APK_NAME}" >> .env
-
-      # ── Cache e download do APK ────────────────────────────────────────────
-      - name: Cache APK
-        uses: actions/cache@v4
-        id: cache-apk
-        with:
-          path: mobile-tests/apps
-          key: apk-${{ runner.os }}-${{ env.APK_VERSION }}
-
-      - name: Download APK
-        if: steps.cache-apk.outputs.cache-hit != 'true'
-        run: |
-          mkdir -p mobile-tests/apps
-          curl -L -o "$APK_PATH" \
-            "https://github.com/webdriverio/native-demo-app/releases/download/${APK_VERSION}/android.wdio.native.app.${APK_VERSION}.apk"
-
-      - name: Validar APK
-        run: |
-          if [ ! -f "$APK_PATH" ]; then
-            echo "❌ APK não encontrado em $APK_PATH"
-            exit 1
-          fi
-          echo "✅ APK encontrado:"
-          ls -lh mobile-tests/apps
-
-      # ── KVM + ADB ──────────────────────────────────────────────────────────
-      - name: Habilitar KVM
-        run: |
-          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
-            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
-          sudo udevadm control --reload-rules
-          sudo udevadm trigger --name-match=kvm
-
-      - name: Instalar adb
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y android-tools-adb
-          adb version
-
-      # ── Subir docker-android via docker compose ────────────────────────────
-      - name: Iniciar docker-android (Android 14 + Appium)
-        working-directory: mobile-tests
-        run: docker compose up -d
-
-      - name: Debug APK no container
-        run: |
-          echo "=== Host ==="
-          ls -lh mobile-tests/apps
-          CONTAINER_ID=$(docker ps -q | head -n 1)
-          echo "Container ID: $CONTAINER_ID"
-          docker exec "$CONTAINER_ID" ls -lh /apps || echo "/apps não encontrado no container"
-
-      # ── Aguardar emulador e Appium ─────────────────────────────────────────
-      - name: Aguardar boot do emulador Android
-        timeout-minutes: 8
-        run: |
-          adb wait-for-device
-          until adb shell getprop sys.boot_completed 2>/dev/null | grep -m 1 '1'; do
-            echo "Aguardando boot completo..."
-            sleep 5
-          done
-          adb shell input keyevent 82
-          echo "✅ Emulador pronto"
-
-      - name: Aguardar Appium
-        working-directory: mobile-tests
-        run: node scripts/wait-for-appium.js
-        env:
-          APPIUM_HOST:    127.0.0.1
-          APPIUM_PORT:    4723
-          APPIUM_WAIT_MS: 300000
-          APPIUM_POLL_MS: 5000
-
-      # ── Executar testes ────────────────────────────────────────────────────
-      - name: Executar testes Mobile
-        working-directory: mobile-tests
-        run: yarn test:android
-        env:
-          APPIUM_HOST:              127.0.0.1
-          APPIUM_PORT:              4723
-          ANDROID_PLATFORM_VERSION: '14'
-          ANDROID_DEVICE_NAME:      emulator-5554
-          ELEMENT_TIMEOUT:          20000
-          TEST_TIMEOUT:             180000
-          APPIUM_COMMAND_TIMEOUT:   300
-          STANDARD_USER:            ${{ secrets.MOBILE_STANDARD_USER }}
-          STANDARD_PASSWORD:        ${{ secrets.MOBILE_STANDARD_PASSWORD }}
-          INVALID_USER:             aaaaaaaaaaaaaaa
-          INVALID_PASSWORD:         senhaerrada
-          TEST_ENV:                 QA
-
-      - name: Parar docker-android
-        if: always()
-        working-directory: mobile-tests
-        run: docker compose down
-
-      # ── Artefatos ──────────────────────────────────────────────────────────
-      - name: Upload Allure results – Android
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: android-allure-results-${{ github.run_number }}
-          path: mobile-tests/allure-results/
-          if-no-files-found: warn
-          retention-days: 30
-
-      - name: Upload screenshots de falha
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: android-screenshots-${{ github.run_number }}
-          path: mobile-tests/reports/screenshots/
-          if-no-files-found: ignore
-          retention-days: 7
-
-  # ────────────────────────────────────────────────────────────────────────────
-  # Publicar relatórios no GitHub Pages
-  # ────────────────────────────────────────────────────────────────────────────
+  # ── Publicar relatórios no GitHub Pages ──────────────────────────────────────
+  #
+  # Lê needs.<suite>.result individualmente — cada card do dashboard
+  # reflete o status real daquela suite, independente das demais.
   publish-reports:
     name: Publish Reports to GitHub Pages
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    needs: [tests, mobile-android]
+    needs: [api-tests, web-tests, performance-tests, mobile-android]
     if: always() && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
 
     steps:
@@ -402,7 +129,7 @@ jobs:
           environment: github-pages
           onlyRemoveDeployments: true
 
-      # ── Download dos allure-results das três suites ────────────────────────
+      # ── Download dos allure-results de cada suite ──────────────────────────
       - name: Download Allure results – API
         uses: actions/download-artifact@v4
         with:
@@ -483,7 +210,7 @@ jobs:
             echo "Nenhum histórico Android anterior — primeiro run"
           fi
 
-      # ── Gerar relatórios Allure para as três suites ───────────────────────
+      # ── Gerar relatórios Allure ────────────────────────────────────────────
       - name: Generate Allure report – API
         run: |
           RESULTS_DIR="allure-raw/api"
@@ -517,12 +244,14 @@ jobs:
             echo "<h2>Sem resultados Android neste run</h2>" > gh-pages/android/report/index.html
           fi
 
-      # ── Status dos jobs para o dashboard ──────────────────────────────────
+      # ── Status individual por suite ────────────────────────────────────────
+      # Cada suite tem seu próprio resultado — corrige o bug do dashboard.
       - name: Resolve job statuses
         id: statuses
         run: |
-          MATRIX_STATUS="${{ needs.tests.result }}"
-          ANDROID_STATUS="${{ needs.mobile-android.result }}"
+          API_STATUS="${{ needs.api-tests.result }}"
+          WEB_STATUS="${{ needs.web-tests.result }}"
+          AND_STATUS="${{ needs.mobile-android.result }}"
 
           badge() {
             case $1 in
@@ -533,12 +262,14 @@ jobs:
             esac
           }
 
-          echo "matrix_badge=$(badge $MATRIX_STATUS)"   >> $GITHUB_OUTPUT
-          echo "android_badge=$(badge $ANDROID_STATUS)" >> $GITHUB_OUTPUT
-          echo "matrix_status=$MATRIX_STATUS"           >> $GITHUB_OUTPUT
-          echo "android_status=$ANDROID_STATUS"         >> $GITHUB_OUTPUT
+          echo "api_badge=$(badge $API_STATUS)"     >> $GITHUB_OUTPUT
+          echo "web_badge=$(badge $WEB_STATUS)"     >> $GITHUB_OUTPUT
+          echo "android_badge=$(badge $AND_STATUS)" >> $GITHUB_OUTPUT
+          echo "api_status=$API_STATUS"             >> $GITHUB_OUTPUT
+          echo "web_status=$WEB_STATUS"             >> $GITHUB_OUTPUT
+          echo "android_status=$AND_STATUS"         >> $GITHUB_OUTPUT
 
-      # ── Dashboard index.html ─────────────────────────────────────────────
+      # ── Dashboard index.html ───────────────────────────────────────────────
       - name: Generate index page
         run: |
           RUN_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
@@ -548,7 +279,8 @@ jobs:
           BRANCH="${{ github.ref_name }}"
           RUN_NUM="${{ github.run_number }}"
           DATE=$(date -u '+%d/%m/%Y %H:%M UTC')
-          MATRIX_STATUS="${{ steps.statuses.outputs.matrix_status }}"
+          API_STATUS="${{ steps.statuses.outputs.api_status }}"
+          WEB_STATUS="${{ steps.statuses.outputs.web_status }}"
           AND_STATUS="${{ steps.statuses.outputs.android_status }}"
 
           color() {
@@ -619,8 +351,8 @@ jobs:
             <div class="grid">
               <div class="card">
                 <div class="card-title"><span class="card-icon">🔌</span> API Tests</div>
-                <span class="status-badge" style="background:$(color $MATRIX_STATUS)">
-                  ${{ steps.statuses.outputs.matrix_badge }}
+                <span class="status-badge" style="background:$(color $API_STATUS)">
+                  ${{ steps.statuses.outputs.api_badge }}
                 </span>
                 <p style="color:#94a3b8;font-size:0.85rem">
                   Testes de contrato e integração via REST.<br/>
@@ -631,8 +363,8 @@ jobs:
 
               <div class="card">
                 <div class="card-title"><span class="card-icon">🌐</span> Web E2E Tests</div>
-                <span class="status-badge" style="background:$(color $MATRIX_STATUS)">
-                  ${{ steps.statuses.outputs.matrix_badge }}
+                <span class="status-badge" style="background:$(color $WEB_STATUS)">
+                  ${{ steps.statuses.outputs.web_badge }}
                 </span>
                 <p style="color:#94a3b8;font-size:0.85rem">
                   Testes E2E com Playwright + Cucumber.<br/>

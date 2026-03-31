@@ -1,0 +1,67 @@
+# ── Workflow reutilizável — API Tests ─────────────────────────────────────────
+# Chamado pelo orquestrador ci.yml via workflow_call.
+# Pode também ser disparado manualmente para executar apenas esta suite.
+
+name: API Tests
+
+on:
+  workflow_call:   # chamado pelo ci.yml
+  workflow_dispatch: # disparo manual independente
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  api-tests:
+    name: API Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: yarn
+
+      - name: Cache node_modules
+        uses: actions/cache@v4
+        id: cache-nm
+        with:
+          path: |
+            node_modules
+            api-tests/node_modules
+            shared/node_modules
+          key: api-node-modules-${{ runner.os }}-${{ hashFiles('yarn.lock') }}
+          restore-keys: api-node-modules-${{ runner.os }}-
+
+      - name: Instalar dependências
+        if: steps.cache-nm.outputs.cache-hit != 'true'
+        run: yarn install --frozen-lockfile
+
+      - name: Executar testes API
+        run: yarn test:api
+        env:
+          API_BASE_URL:    https://dummyjson.com
+          REQUEST_TIMEOUT: 10000
+
+      - name: Upload Allure results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-allure-results-${{ github.run_number }}
+          path: api-tests/allure-results/
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Upload Mochawesome report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-mochawesome-${{ github.run_number }}
+          path: api-tests/reports/
+          if-no-files-found: warn
+          retention-days: 30

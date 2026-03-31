@@ -1,0 +1,101 @@
+# ── Workflow reutilizável — Performance Tests ─────────────────────────────────
+# Chamado pelo orquestrador ci.yml via workflow_call.
+# BASE_URL aponta exclusivamente para dummyjson.com — nunca para o saucedemo.
+
+name: Performance Tests
+
+on:
+  workflow_call:
+    inputs:
+      perf_mode:
+        description: 'gate (quebra pipeline) ou informative (só reporta)'
+        type: string
+        default: 'informative'
+      perf_profile:
+        description: 'Perfil k6: load | spike | soak'
+        type: string
+        default: 'load'
+  workflow_dispatch:
+    inputs:
+      perf_mode:
+        description: 'Modo de performance'
+        required: false
+        default: 'informative'
+        type: choice
+        options:
+          - gate
+          - informative
+      perf_profile:
+        description: 'Perfil k6'
+        required: false
+        default: 'load'
+        type: choice
+        options: [load, spike, soak]
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  performance-tests:
+    name: Performance Tests (k6)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: yarn
+
+      - name: Cache node_modules
+        uses: actions/cache@v4
+        id: cache-nm
+        with:
+          path: |
+            node_modules
+            performance-tests/node_modules
+          key: perf-node-modules-${{ runner.os }}-${{ hashFiles('yarn.lock') }}
+          restore-keys: perf-node-modules-${{ runner.os }}-
+
+      - name: Instalar dependências
+        if: steps.cache-nm.outputs.cache-hit != 'true'
+        run: yarn install --frozen-lockfile
+
+      - name: Instalar k6
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y gnupg ca-certificates
+          curl -fsSL https://dl.k6.io/key.gpg \
+            | sudo gpg --dearmor -o /usr/share/keyrings/k6-archive-keyring.gpg
+          echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" \
+            | sudo tee /etc/apt/sources.list.d/k6.list
+          sudo apt-get update -qq
+          sudo apt-get install -y k6
+
+      - name: Executar testes de Performance
+        run: |
+          MODE="${{ inputs.perf_mode || 'informative' }}"
+          if [ "$MODE" = "informative" ]; then
+            yarn workspace performance-tests test:informative
+          else
+            yarn workspace performance-tests test:gate
+          fi
+        env:
+          # URL alvo do k6 — exclusivamente a API dummyjson
+          # BASE_URL é declarado aqui isoladamente para nunca ser contaminado
+          # pela URL do saucedemo definida no workflow de web-tests.
+          BASE_URL:       https://dummyjson.com
+          STAGES_PROFILE: ${{ inputs.perf_profile || 'load' }}
+
+      - name: Upload resultados k6
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: results-performance-${{ github.run_id }}
+          path: performance-tests/results/**
+          if-no-files-found: warn
+          retention-days: 30

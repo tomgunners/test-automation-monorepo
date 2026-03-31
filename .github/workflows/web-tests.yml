@@ -1,0 +1,95 @@
+# ── Workflow reutilizável — Web E2E Tests ─────────────────────────────────────
+# Chamado pelo orquestrador ci.yml via workflow_call.
+
+name: Web Tests
+
+on:
+  workflow_call:
+    inputs:
+      profile:
+        description: 'Perfil Cucumber (default | smoke | regression)'
+        type: string
+        default: 'regression'
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: 'Perfil Cucumber'
+        required: false
+        default: 'regression'
+        type: choice
+        options: [default, smoke, regression]
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  web-tests:
+    name: Web E2E Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: yarn
+
+      - name: Cache node_modules
+        uses: actions/cache@v4
+        id: cache-nm
+        with:
+          path: |
+            node_modules
+            web-tests/node_modules
+            shared/node_modules
+          key: web-node-modules-${{ runner.os }}-${{ hashFiles('yarn.lock') }}
+          restore-keys: web-node-modules-${{ runner.os }}-
+
+      - name: Instalar dependências
+        if: steps.cache-nm.outputs.cache-hit != 'true'
+        run: yarn install --frozen-lockfile
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        id: cache-playwright
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('yarn.lock') }}
+          restore-keys: playwright-${{ runner.os }}-
+
+      - name: Instalar Playwright browsers
+        if: steps.cache-playwright.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+
+      - name: Executar testes Web
+        run: |
+          PROFILE="${{ inputs.profile || 'regression' }}"
+          yarn workspace web-tests cucumber-js --profile "$PROFILE"
+        env:
+          BASE_URL:   https://www.saucedemo.com
+          HEADLESS:   'true'
+          BROWSER:    chromium
+          REPORT_URL: >-
+            https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}
+
+      - name: Upload Allure results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-allure-results-${{ github.run_number }}
+          path: web-tests/allure-results/
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Upload test-results (screenshots e Cucumber HTML)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-test-results-${{ github.run_number }}
+          path: web-tests/test-results/
+          if-no-files-found: warn
+          retention-days: 30
