@@ -85,9 +85,6 @@ jobs:
             yarn workspace performance-tests test:gate
           fi
         env:
-          # URL alvo do k6 — exclusivamente a API dummyjson
-          # BASE_URL é declarado aqui isoladamente para nunca ser contaminado
-          # pela URL do saucedemo definida no workflow de web-tests.
           BASE_URL:       https://dummyjson.com
           STAGES_PROFILE: ${{ inputs.perf_profile || 'load' }}
 

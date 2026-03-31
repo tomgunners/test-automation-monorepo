@@ -142,7 +142,7 @@ jobs:
           TEST_TIMEOUT:             180000
           APPIUM_COMMAND_TIMEOUT:   300
 
-      - name: Parar docker-android
+      - name: Stop docker-android
         if: always()
         working-directory: mobile-tests
         run: docker compose down

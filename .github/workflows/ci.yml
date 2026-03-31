@@ -1,11 +1,10 @@
-# ── Orquestrador principal ────────────────────────────────────────────────────
+# ── CI Orquestrador principal ────────────────────────────────────────────────────
 #
 # Chama os 4 workflows reutilizáveis em paralelo e, ao final, publica os
 # relatórios Allure no GitHub Pages com status individual por suite.
 #
-# Cada suite tem seu próprio job (não mais uma matriz compartilhada), o que
-# permite ler needs.<suite>.result individualmente — corrigindo o bug onde
-# API e Web mostravam "Falhou" quando apenas o Mobile falhava.
+# Cada suite tem seu próprio job, o que
+# permite ler needs.<suite>.result individualmente
 #
 # Estrutura:
 #   .github/workflows/
@@ -101,8 +100,6 @@ jobs:
 
   # ── Publicar relatórios no GitHub Pages ──────────────────────────────────────
   #
-  # Lê needs.<suite>.result individualmente — cada card do dashboard
-  # reflete o status real daquela suite, independente das demais.
   publish-reports:
     name: Publish Reports to GitHub Pages
     runs-on: ubuntu-latest
@@ -245,7 +242,7 @@ jobs:
           fi
 
       # ── Status individual por suite ────────────────────────────────────────
-      # Cada suite tem seu próprio resultado — corrige o bug do dashboard.
+      # Cada suite tem seu próprio resultado 
       - name: Resolve job statuses
         id: statuses
         run: |
