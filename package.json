@@ -20,6 +20,7 @@
     "test:web:allure": "yarn workspace web-tests report:allure",
     "test:api": "yarn workspace api-tests test",
     "test:api:report": "yarn workspace api-tests test:report",
+    "test:api:allure": "yarn workspace api-tests report:allure",
     "test:perf": "yarn workspace performance-tests test:gate",
     "test:perf:smoke": "yarn workspace performance-tests test:smoke",
     "test:perf:informative": "yarn workspace performance-tests test:informative",
