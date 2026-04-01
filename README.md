@@ -1,55 +1,321 @@
-# Test Automation Monorepo
+# Automação de Testes - Projeto Monorepo [![TA - Pipeline](https://github.com/tomgunners/test-automation-monorepo/actions/workflows/ci.yml/badge.svg)](https://github.com/tomgunners/test-automation-monorepo/actions/workflows/ci.yml)
 
-Monorepo de automação de testes cobrindo **API** e **Mobile Android**, com relatórios Allure publicados automaticamente no GitHub Pages via GitHub Actions.
+Monorepo completo de automação de testes com quatro projetos independentes: **Web E2E**, **API**, **Performance** e **Mobile**
 
 ---
 
-## Estrutura
+## Estrutura do Projeto
 
 ```
-.
-├── api-tests/            # Supertest + Mocha + Chai + TypeScript (DummyJSON)
-├── mobile-tests/         # WebdriverIO v8 + Appium 2 + TypeScript (Android 14)
-├── web-tests/            # Playwright + Cucumber + TypeScript (SauceDemo)
-└── performance-tests/    # k6 (DummyJSON Products API)
+test-automation-monorepo/
+├── .github/
+│   └── workflows/
+│       └── ci.yml                  # Pipeline CI/CD (GitHub Actions)
+├── web-tests/                      # Testes E2E com Playwright + Cucumber
+│   ├── src/
+│   │   ├── config/                 # Configurações e variáveis de ambiente
+│   │   ├── features/               # Arquivos .feature (BDD/Gherkin) com tags @smoke/@regression
+│   │   ├── hooks/                  # Lifecycle hooks + World do Cucumber
+│   │   ├── locators/               # Seletores separados das Pages
+│   │   ├── pages/                  # Page Objects
+│   │   └── steps/                  # Step definitions
+│   ├── .env                        # Variáveis de ambiente
+│   ├── cucumber.js                 # Perfis: default | smoke | regression | allure
+│   ├── package.json
+│   └── tsconfig.json
+├── api-tests/                      # Testes de API com Supertest + Mocha
+│   ├── src/
+│   │   ├── client/                 # HTTP Client + Services por recurso
+│   │   ├── config/                 # Configuração e setup do Mocha
+│   │   ├── schemas/                # Tipos TypeScript + validadores de schema
+│   │   ├── tests/                  # Suítes de teste
+│   │   └── utils/                  # Utilitários compartilhados
+│   ├── .env
+│   ├── package.json
+│   └── tsconfig.json
+├── performance-tests/              # Testes de Performance com k6
+│   ├── scripts/                    # k6-runner.js (cross-platform runner)
+│   ├── src/
+│   │   ├── config/                 # Perfis de carga: load | spike | soak
+│   │   ├── scenarios/              # Scripts de teste k6
+│   │   └── utils/                  # Clients HTTP + gerador de relatório
+│   ├── .env                        # Variáveis de ambiente do k6
+│   └── package.json
+├── mobile-tests/                   # Testes Mobile com WebdriverIO + Appium 2
+│   ├── apps/                       # APK do app sob teste
+│   ├── src/
+│   │   ├── config/
+│   │   │   ├── wdio.android.conf.ts
+│   │   │   └── wdio.shared.conf.ts
+│   │   ├── locators/
+│   │   ├── pages/
+│   │   ├── tests/
+│   │   ├── types/
+│   │   └── utils/
+│   ├── .env
+│   ├── package.json
+│   └── tsconfig.json
+├── package.json                    # Raiz do monorepo (Yarn Workspaces)
+├── .gitattributes                  # Padronização de line endings (LF)
+├── .gitignore
+└── README.md
 ```
 
 ---
 
 ## Pré-requisitos
 
-| Ferramenta        | Versão mínima | Necessário para   |
-|-------------------|---------------|-------------------|
-| Node.js           | 20.x          | Todos             |
-| Yarn              | 1.22.x        | Todos             |
-| Docker Desktop    | —             | mobile-tests      |
-| Allure CLI        | 2.x           | Relatórios locais |
-| k6                | latest        | performance-tests |
+| Ferramenta | Versão mínima | Instalação |
+|------------|--------------|------------|
+| Node.js    | 20.x         | [nodejs.org](https://nodejs.org) |
+| Yarn       | 1.22.x       | `npm install -g yarn` |
+| k6         | 0.49.x       | [k6.io/docs/get-started/installation](https://k6.io/docs/get-started/installation/) |
+| Allure CLI | 2.x          | `npm install -g allure-commandline` |
+| Java JDK   | ≥ 11         | oracle.com/java |
+| Appium 2   | ≥ 2.x        | `npm i -g appium` |
 
 ---
 
 ## Instalação
 
 ```bash
+git clone <url-do-repositorio>
+cd test-automation-monorepo
 # Instalar todas as dependências — pronto para rodar
 yarn install
-
 # Playwright (apenas web-tests)
 yarn playwright:install
 ```
 
 ---
 
-## Executando
+## Projeto — Testes Web (E2E)
 
-### API
+**Stack:** ![Playwright](https://img.shields.io/badge/Playwright-1.42.1-45ba4b?style=flat&logo=playwright&logoColor=white)
+![Cucumber](https://img.shields.io/badge/Cucumber-10.3.1-23d96c?style=flat&logo=cucumber&logoColor=white)
+![TypeScript](https://img.shields.io/badge/TypeScript-5.3.3-3178c6?style=flat&logo=typescript&logoColor=white)
+![Allure](https://img.shields.io/badge/Allure_Report-3.0.0-orange?style=flat&logo=qase&logoColor=white)
+
+**Aplicação testada:** [https://www.saucedemo.com](https://www.saucedemo.com)
+
+### Cenários cobertos
+
+| Módulo    | Cenário                                     |
+|-----------|---------------------------------------------|
+| Login     | Login com sucesso                           |
+| Login     | Login com credenciais inválidas             |
+| Login     | Login com usuário bloqueado                 |
+| Carrinho  | Adicionar produto ao carrinho               |
+| Carrinho  | Remover produto do carrinho                 |
+| Carrinho  | Validar quantidade de itens                 |
+| Checkout  | Finalizar compra com sucesso                |
+| Checkout  | Campos obrigatórios vazios                  |
+
+### Variável HEADLESS
+
+| Valor | Comportamento |
+|-------|---------------|
+| `HEADLESS=true`  | Browser sem janela (padrão — recomendado para CI) |
+| `HEADLESS=false` | Browser visível (debug local) |
+
+### Tags disponíveis nos cenários
+
+| Tag | Quando usar |
+|-----|-------------|
+| `@smoke`      | Cenários críticos e rápidos — validação pós-deploy |
+| `@regression` | Cobertura completa — antes de releases |
+| `@severity:critical` / `@severity:normal` | Severidade para o relatório Allure |
+
+### Executar testes
+
 ```bash
-yarn test:api               # Mocha + Allure + Mochawesome em paralelo
-yarn test:api:report        # Abre reports/api-report.html (Mochawesome)
-yarn workspace api-tests report:allure   # Relatório Allure interativo
+# Todos os cenários (headless, perfil default)
+yarn test:web
+
+# Apenas smoke (críticos, mais rápido)
+yarn test:web:smoke
+
+# Regressão completa
+yarn test:web:regression
+
+# Ou passando tag diretamente:
+cd web-tests && npx cucumber-js --tags "@smoke"
+cd web-tests && npx cucumber-js --tags "@regression and not @wip"
+
+# Relatórios
+yarn test:web:report    # Cucumber HTML
+yarn test:web:allure    # Gera e abre relatório Allure
 ```
 
-### Mobile (local via emulador)
+### Variáveis de ambiente (`web-tests/.env`)
+
+| Variável            | Padrão                      | Descrição               |
+|---------------------|-----------------------------|-------------------------|
+| `BASE_URL`          | `https://www.saucedemo.com` | URL base da aplicação   |
+| `HEADLESS`          | `false`                     | `true` = sem janela     |
+| `BROWSER`           | `chromium`                  | chromium / firefox / webkit |
+| `SLOW_MO`           | `0`                         | Delay entre ações (ms)  |
+| `DEFAULT_TIMEOUT`   | `10000`                     | Timeout padrão (ms)     |
+| `NAVIGATION_TIMEOUT`| `60000`                     | Timeout de navegação (ms)|
+
+### Arquitetura Web
+
+```
+src/
+├── config/    → env.config.ts (lê .env e exporta config tipado)
+├── features/  → .feature com tags @smoke / @regression / @severity
+├── hooks/     → hooks.ts (browser 1x no BeforeAll, contexto por cenário)
+│               world.ts  (CustomWorld — página e page objects)
+├── locators/  → Seletores CSS separados das Pages
+├── pages/     → Page Objects (base.page.ts + pages específicas)
+└── steps/     → Step definitions por módulo
+```
+
+---
+
+## Projeto — Testes de API
+
+**Stack:** ![TypeScript](https://img.shields.io/badge/TypeScript-5.3.3-3178c6?style=flat&logo=typescript&logoColor=white)
+![Supertest](https://img.shields.io/badge/Supertest-6.3.4-333333?style=flat&logo=nodedotjs&logoColor=white)
+![Mocha](https://img.shields.io/badge/Mocha-10.3.0-8d6748?style=flat&logo=mocha&logoColor=white)
+![Chai](https://img.shields.io/badge/Chai-4.4.1-f7e3af?style=flat&logo=chai&logoColor=black)
+![Mochawesome](https://img.shields.io/badge/Mochawesome-7.1.3-ff6b6b?style=flat&logo=testinglibrary&logoColor=white)
+
+**API testada:** [https://dummyjson.com/docs/users](https://dummyjson.com/docs/users)
+
+### Cenários cobertos
+
+| Método   | Endpoint            | Tipo      | Validações                                    |
+|----------|---------------------|-----------|-----------------------------------------------|
+| GET      | `/users`            | Positivo  | Status 200, schema de lista, paginação         |
+| GET      | `/users/:id`        | Positivo  | Status 200, schema de usuário, email válido    |
+| GET      | `/users/:id`        | Negativo  | Status 404 para ID inexistente                 |
+| POST     | `/users/add`        | Positivo  | Status 201, ID gerado, campos retornados       |
+| PUT      | `/users/:id`        | Positivo  | Status 200, campos atualizados                 |
+| PUT      | `/users/:id`        | Negativo  | Status 404 para ID inexistente                 |
+| DELETE   | `/users/:id`        | Positivo  | Status 200, flag `isDeleted: true`             |
+| DELETE   | `/users/:id`        | Negativo  | Status 404 para ID inexistente                 |
+
+### Executar testes
+
+```bash
+yarn test:api           # Roda todos os testes de API
+yarn test:api:report    # Abre relatório Mochawesome
+yarn test:api:allure    # Relatório Allure interativo
+```
+
+### Variáveis de ambiente (`api-tests/.env`)
+
+| Variável          | Padrão                  | Descrição             |
+|-------------------|-------------------------|-----------------------|
+| `API_BASE_URL`    | `https://dummyjson.com` | URL base da API       |
+| `REQUEST_TIMEOUT` | `10000`                 | Timeout de requisição |
+
+---
+
+## Projeto — Testes de Performance
+
+**Stack:** ![JavaScript](https://img.shields.io/badge/JavaScript-ES2020-f7df1e?style=flat&logo=javascript&logoColor=black)
+![k6](https://img.shields.io/badge/k6-0.49.x-7d64ff?style=flat&logo=k6&logoColor=white)
+
+**API testada:** [https://dummyjson.com/docs/products](https://dummyjson.com/docs/products)
+
+### Perfis de carga
+
+| Perfil  | Descrição | VUs máx | Duração |
+|---------|-----------|---------|---------|
+| `load`  | Rampa gradual — tráfego normal sustentado | 500 VUs | ~6m30s |
+| `spike` | Pico repentino — burst de tráfego (2× o load) | 1000 VUs | ~2m |
+| `soak`  | Endurance — detecta degradação e memory leak | 200 VUs | ~32m |
+
+### Modos de execução
+
+| Modo | Script | Comportamento no CI |
+|------|--------|---------------------|
+| `gate`        | `test:gate`        | Quebra o pipeline se thresholds falharem |
+| `informative` | `test:informative` | Apenas reporta, nunca quebra o pipeline  |
+
+### Executar testes
+
+```bash
+# Modo gate com perfil load (padrão — quebra se thresholds falharem)
+yarn test:gate
+
+# Modo smoke para test rapido de validação
+yarn test:perf:smoke
+
+# Modo informativo (nunca quebra o pipeline)
+yarn test:informative
+
+# Perfis específicos
+yarn test:spike   # Teste de pico
+yarn test:soak    # Teste de endurance
+
+# Com variáveis customizadas
+cd performance-tests
+VUS=50 DURATION=2m node scripts/k6-runner.js src/scenarios/products.test.js
+
+# Relatório do último resultado
+yarn test:report
+```
+
+### Variáveis de ambiente (`performance-tests/.env`)
+
+| Variável                  | Padrão                  | Descrição |
+|---------------------------|-------------------------|-----------|
+| `BASE_URL`                | `https://dummyjson.com` | URL alvo |
+| `STAGES_PROFILE`          | `load`                  | Perfil: `load` \| `spike` \| `soak` |
+| `VUS`                     | —                       | VUs custom (sobrescreve o perfil) |
+| `DURATION`                | —                       | Duração custom, ex.: `2m` (sobrescreve o perfil) |
+| `LOAD_MAX_VUS`            | `500`                   | VUs máximos do perfil load |
+| `LOAD_RAMPUP_DURATION`    | `1m`                    | Duração do ramp-up (load) |
+| `LOAD_SUSTAIN_DURATION`   | `5m`                    | Duração da carga plena (load) |
+| `LOAD_RAMPDOWN_DURATION`  | `30s`                   | Duração do ramp-down (load) |
+| `SPIKE_BASELINE_VUS`      | `50`                    | VUs baseline (spike) |
+| `SPIKE_PEAK_VUS`          | `1000`                  | VUs no pico (spike) |
+| `SPIKE_BASELINE_DURATION` | `30s`                   | Duração baseline (spike) |
+| `SPIKE_PEAK_DURATION`     | `30s`                   | Duração do pico (spike) |
+| `SPIKE_RECOVERY_DURATION` | `30s`                   | Duração da recuperação (spike) |
+| `SOAK_MAX_VUS`            | `200`                   | VUs máximos (soak) |
+| `SOAK_RAMPUP_DURATION`    | `2m`                    | Duração do ramp-up (soak) |
+| `SOAK_SUSTAIN_DURATION`   | `28m`                   | Duração da carga sustentada (soak) |
+| `SOAK_RAMPDOWN_DURATION`  | `2m`                    | Duração do ramp-down (soak) |
+
+### Thresholds (SLA)
+
+| Métrica                         | Threshold    |
+|---------------------------------|--------------|
+| `http_req_duration p(95)`       | `< 2000ms`   |
+| `http_req_duration p(99)`       | `< 5000ms`   |
+| `http_req_failed`               | `< 2%`       |
+| `http_reqs` (throughput)        | `> 100 req/s`|
+| `list_products_duration p(95)`  | `< 1500ms`   |
+| `get_product_by_id_duration p(95)` | `< 1500ms` |
+| `search_products_duration p(95)`| `< 2000ms`   |
+| `get_categories_duration p(95)` | `< 1500ms`   |
+
+---
+
+## Projeto — Testes Mobile
+
+**Stack:** ![WebdriverIO](https://img.shields.io/badge/WebdriverIO-9.x-ea5906?style=flat&logo=webdriverio&logoColor=white)
+![Appium](https://img.shields.io/badge/Appium-2.x-662d91?style=flat&logo=appium&logoColor=white)
+![TypeScript](https://img.shields.io/badge/TypeScript-5.3.3-3178c6?style=flat&logo=typescript&logoColor=white)
+![Allure](https://img.shields.io/badge/Allure_Report-3.0.0-orange?style=flat&logo=qase&logoColor=white)
+
+**Aplicação testada:** NATIVE DEMO APP (Android)
+
+### Cenários cobertos
+
+| Módulo   | Cenário                                          |
+|----------|--------------------------------------------------|
+| Login    | Verificar login com sucesso                      |
+| Login    | Validar erro ao informar senha inválida          |
+| Login    | Validar erro ao informar email incorreto         |
+| Login    | Validar erro ao tentar login sem preencher campos|
+
+### Executar testes
+
 ```bash
 # 1. Baixe o APK e coloque em mobile-tests/apps/
 #    https://github.com/webdriverio/native-demo-app/releases/tag/v2.0.0
@@ -67,66 +333,130 @@ yarn test:mobile
 yarn test:mobile:allure
 ```
 
-### Web E2E
-```bash
-yarn test:web:smoke
-yarn test:web:regression
-yarn test:web:allure
-```
+### Variáveis de ambiente (`mobile-tests/.env`)
 
-### Performance
+| Variável                   | Padrão         | Descrição |
+|----------------------------|----------------|-----------|
+| `APPIUM_HOST`              | `127.0.0.1`    | Endereço Appium |
+| `APPIUM_PORT`              | `4723`         | Porta Appium |
+| `ANDROID_PLATFORM_VERSION` | `15.0`         | Versão Android |
+| `ANDROID_DEVICE_NAME`      | `emulator-5554`| Serial do dispositivo |
+| `ANDROID_APP_NAME`         | `wdio-native-demo-app.apk` | Nome do APK em `apps/` |
+| `ELEMENT_TIMEOUT`          | `15000`        | Timeout de elemento (ms) |
+| `TEST_TIMEOUT`             | `120000`       | Timeout por teste (ms) |
+| `APPIUM_COMMAND_TIMEOUT`   | `300`          | Timeout de inatividade (s) |
+
+---
+
+## Relatórios
+
 ```bash
-yarn test:perf:informative
-yarn test:perf
+# Web
+yarn test:web:report         # Cucumber HTML
+yarn test:web:allure         # Allure (gera + abre)
+
+# API
+yarn test:api:report         # Mochawesome HTML
+yarn test:api:allure         # Allure (gera + abre)
+
+# Performance
+yarn test:report             # Sumário k6 no terminal + HTML em results/
+
+# Mobile
+yarn test:mobile:allure      # Allure (gera + abre)
 ```
 
 ---
 
-## CI/CD — GitHub Actions
+## Scripts disponíveis (raiz do monorepo)
+
+```bash
+# Web
+yarn test:web                # Todos os cenários (headless)
+yarn test:web:smoke          # Apenas @smoke
+yarn test:web:regression     # Apenas @regression
+yarn test:web:report         # Relatório Cucumber HTML
+yarn test:web:allure         # Relatório Allure
+
+# API
+yarn test:api                # Todos os testes de API
+yarn test:api:report         # Relatório Mochawesome
+yarn test:api:allure         # Allure (gera + abre)
+
+
+# Performance
+yarn test:perf               # Gate mode, perfil load
+yarn test:perf:smoke         # Perfil smoke teste rapido
+yarn test:perf:informative   # Apenas reporta, nunca quebra
+yarn test:perf:spike         # Perfil spike
+yarn test:perf:soak          # Perfil soak/endurance
+yarn test:perf:report        # Exibe último resultado
+
+# Mobile
+yarn test:mobile             # Todos os testes mobile
+yarn test:mobile:allure      # Relatório Allure
+
+# Utilitários
+yarn test:all                # Web + API + Performance + Mobile
+yarn lint                    # ESLint em todos os workspaces
+yarn clean                   # Remove artefatos gerados
+```
+
+---
+
+## CI/CD
+
+Pipeline em `.github/workflows/ci.yml` para GitHub Actions.
+
+### Triggers
+
+- Push na branch `main`
+- Pull Requests para `main`
+- Execução manual com seleção de suíte, perfil web, modo performance e perfil k6
 
 ### Jobs
 
-| Job              | O que faz                                                              |
-|------------------|------------------------------------------------------------------------|
-| `api-tests`      | Executa testes, faz upload dos Allure results e Mochawesome report     |
-| `mobile-android` | Sobe `docker-android:emulator_14.0`, executa, faz upload dos results  |
-| `publish-reports`| Gera Allure reports, cria dashboard `index.html` → GitHub Pages        |
+| Job                    | Artefatos gerados             |
+|------------------------|-------------------------------|
+| API Tests              | Allure Report + Mochawesome   |
+| Web Tests (regression) | Allure Report + Cucumber HTML |
+| Mobile Tests           | Allure Report                 |
+| Performance Tests      | HTML + JSON do k6             |
 
-> O `shared` é resolvido via `ts-node` em runtime — não há job de build.
+### Configuração de HEADLESS no CI
 
-### Secrets necessários
-
-| Secret                     | Descrição                       |
-|----------------------------|---------------------------------|
-| `MOBILE_STANDARD_USER`     | Email do usuário válido no app  |
-| `MOBILE_STANDARD_PASSWORD` | Senha do usuário válido         |
-
-### GitHub Pages
-
-Após o primeiro push em `main` ou `develop`:
-```
-https://<owner>.github.io/<repo>/
-```
+O CI define `HEADLESS: 'true'`, o que faz o browser rodar sem janela — comportamento correto e esperado em ambientes headless como o `ubuntu-latest`. Não há inversão de lógica: `HEADLESS=true` significa sem janela.
 
 ---
 
-## mobile-tests — Execução local vs CI
+## Decisões Arquiteturais
 
-| Modo           | Como funciona                                      | Variável de controle            |
-|----------------|----------------------------------------------------|---------------------------------|
-| Local direto   | Appium rodando na máquina, APK em `apps/`          | `ANDROID_APP_NAME`              |
-| docker compose | Container docker-android, APK em `/apps/` (volume) | `ANDROID_APP_CONTAINER_PATH`    |
-| GitHub Actions | docker run no runner, variáveis via `env:`         | `ANDROID_APP_CONTAINER_PATH`    |
+### Headless sem inversão (Web)
+`HEADLESS=true` → browser sem janela. `HEADLESS=false` → browser visível. A variável é lida diretamente por `process.env.HEADLESS === 'true'` sem nenhuma negação no código.
 
----
+### Browser reutilizado entre cenários (Web)
+O browser é lançado uma única vez no `BeforeAll` e fechado no `AfterAll`. Cada cenário cria uma nova `page` dentro do mesmo contexto, com localStorage e cookies limpos no `After`. Isso reduz o tempo total da suíte e mantém isolamento completo entre os cenários.
 
-## Workspace `@automation/shared`
+### Tags @smoke / @regression (Web)
+Cenários críticos recebem `@smoke` — executados em todo push para validação rápida. Cenários de cobertura completa recebem `@regression` — executados antes de releases.
 
-```ts
-import { setupAllure } from '@automation/shared';
+### Dois modos de performance no CI
+`test:gate` quebra o pipeline quando thresholds de SLA falham — comportamento de quality gate real. `test:informative` usa `--no-thresholds` e nunca quebra — padrão no CI para monitoramento contínuo sem bloquear o pipeline.
 
-setupAllure({
-  environment: { Browser: 'Chromium', 'Base.URL': 'https://example.com' },
-  categories:  [...], // opcional — usa categorias comuns se omitido
-});
-```
+### k6-runner.js cross-platform
+O k6 não lê `process.env` nem suporta `--env-file`. O `k6-runner.js` lê o `.env`, injeta as variáveis como `--env KEY=VALUE` e executa o k6. Variáveis definidas via `cross-env` no `package.json` têm prioridade sobre o `.env`, permitindo que `yarn test:spike` sobrescreva `STAGES_PROFILE` corretamente.
+
+### Perfis de carga k6 (load / spike / soak)
+Cada perfil usa `scenarios` com `executor: ramping-vus`. Os valores de VUs e duração são configuráveis via `.env` sem alterar o código. O perfil é selecionável via `STAGES_PROFILE` ou sobrescrito com `VUS` + `DURATION` para execuções ad-hoc.
+
+### abortOnFail nos thresholds
+Todos os thresholds têm `abortOnFail: true` e `delayAbortEval: '30s'`. O delay evita falso positivo durante o ramp-up; o abort garante que o k6 encerra imediatamente com exit code 99 ao detectar violação de SLA, quebrando o pipeline de forma inequívoca no modo gate.
+
+### Page Object + Locators separados
+Seletores ficam em arquivos `*.locators.ts` independentes. Atualizar um seletor não exige tocar na lógica da Page/Screen.
+
+### Screenshot + logs no Allure (Mobile)
+O hook `afterTest` salva o screenshot em disco, anexa ao Allure como `image/png` e adiciona um attachment `text/plain` com mensagem e stack trace do erro — tudo em um único passo de falha.
+
+### `browser.reloadSession()` no lugar de `driver.reset()` (Mobile)
+O `driver.reset()` foi depreciado no Appium 2. O `reloadSession()` garante estado limpo entre testes sem reinstalar o APK.
