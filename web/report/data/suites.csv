@@ -1,28 +1,28 @@
 "Status","Start Time","Stop Time","Duration in ms","Parent Suite","Suite","Sub Suite","Test Class","Test Method","Name","Description"
-"passed","Tue Mar 31 17:24:26 UTC 2026","Tue Mar 31 17:24:27 UTC 2026","330","","","","","","Login com usuário bloqueado","Como usuário da plataforma SauceDemo
-  Quero realizar o login com diferentes credenciais
-  Para acessar ou ser impedido de acessar o sistema"
-"passed","Tue Mar 31 17:24:25 UTC 2026","Tue Mar 31 17:24:25 UTC 2026","538","","","","","","Tentar finalizar sem preencher o primeiro nome","Como usuário autenticado no SauceDemo
+"passed","Wed Apr 01 18:31:48 UTC 2026","Wed Apr 01 18:31:48 UTC 2026","565","","","","","","Tentar finalizar sem preencher o primeiro nome","Como usuário autenticado no SauceDemo
   Quero finalizar minhas compras no checkout
   Para concluir meu pedido ou ser avisado de campos obrigatórios"
-"passed","Tue Mar 31 17:24:22 UTC 2026","Tue Mar 31 17:24:23 UTC 2026","692","","","","","","Adicionar produto ao carrinho","Como usuário autenticado no SauceDemo
-  Quero gerenciar os itens do meu carrinho de compras
-  Para controlar minha lista de produtos antes do checkout"
-"passed","Tue Mar 31 17:24:24 UTC 2026","Tue Mar 31 17:24:24 UTC 2026","514","","","","","","Validar quantidade de itens no carrinho","Como usuário autenticado no SauceDemo
-  Quero gerenciar os itens do meu carrinho de compras
-  Para controlar minha lista de produtos antes do checkout"
-"passed","Tue Mar 31 17:24:26 UTC 2026","Tue Mar 31 17:24:26 UTC 2026","342","","","","","","Login com sucesso usando credenciais válidas","Como usuário da plataforma SauceDemo
-  Quero realizar o login com diferentes credenciais
-  Para acessar ou ser impedido de acessar o sistema"
-"passed","Tue Mar 31 17:24:26 UTC 2026","Tue Mar 31 17:24:26 UTC 2026","337","","","","","","Login com credenciais inválidas","Como usuário da plataforma SauceDemo
-  Quero realizar o login com diferentes credenciais
-  Para acessar ou ser impedido de acessar o sistema"
-"passed","Tue Mar 31 17:24:23 UTC 2026","Tue Mar 31 17:24:24 UTC 2026","482","","","","","","Remover produto do carrinho","Como usuário autenticado no SauceDemo
-  Quero gerenciar os itens do meu carrinho de compras
-  Para controlar minha lista de produtos antes do checkout"
-"passed","Tue Mar 31 17:24:24 UTC 2026","Tue Mar 31 17:24:25 UTC 2026","591","","","","","","Finalizar compra com sucesso","Como usuário autenticado no SauceDemo
+"passed","Wed Apr 01 18:31:47 UTC 2026","Wed Apr 01 18:31:48 UTC 2026","612","","","","","","Finalizar compra com sucesso","Como usuário autenticado no SauceDemo
   Quero finalizar minhas compras no checkout
   Para concluir meu pedido ou ser avisado de campos obrigatórios"
-"passed","Tue Mar 31 17:24:25 UTC 2026","Tue Mar 31 17:24:26 UTC 2026","515","","","","","","Tentar finalizar sem preencher nenhum campo","Como usuário autenticado no SauceDemo
+"passed","Wed Apr 01 18:31:49 UTC 2026","Wed Apr 01 18:31:49 UTC 2026","328","","","","","","Login com credenciais inválidas","Como usuário da plataforma SauceDemo
+  Quero realizar o login com diferentes credenciais
+  Para acessar ou ser impedido de acessar o sistema"
+"passed","Wed Apr 01 18:31:49 UTC 2026","Wed Apr 01 18:31:49 UTC 2026","374","","","","","","Login com sucesso usando credenciais válidas","Como usuário da plataforma SauceDemo
+  Quero realizar o login com diferentes credenciais
+  Para acessar ou ser impedido de acessar o sistema"
+"passed","Wed Apr 01 18:31:49 UTC 2026","Wed Apr 01 18:31:50 UTC 2026","335","","","","","","Login com usuário bloqueado","Como usuário da plataforma SauceDemo
+  Quero realizar o login com diferentes credenciais
+  Para acessar ou ser impedido de acessar o sistema"
+"passed","Wed Apr 01 18:31:46 UTC 2026","Wed Apr 01 18:31:46 UTC 2026","490","","","","","","Remover produto do carrinho","Como usuário autenticado no SauceDemo
+  Quero gerenciar os itens do meu carrinho de compras
+  Para controlar minha lista de produtos antes do checkout"
+"passed","Wed Apr 01 18:31:45 UTC 2026","Wed Apr 01 18:31:46 UTC 2026","575","","","","","","Adicionar produto ao carrinho","Como usuário autenticado no SauceDemo
+  Quero gerenciar os itens do meu carrinho de compras
+  Para controlar minha lista de produtos antes do checkout"
+"passed","Wed Apr 01 18:31:48 UTC 2026","Wed Apr 01 18:31:49 UTC 2026","536","","","","","","Tentar finalizar sem preencher nenhum campo","Como usuário autenticado no SauceDemo
   Quero finalizar minhas compras no checkout
   Para concluir meu pedido ou ser avisado de campos obrigatórios"
+"passed","Wed Apr 01 18:31:46 UTC 2026","Wed Apr 01 18:31:47 UTC 2026","500","","","","","","Validar quantidade de itens no carrinho","Como usuário autenticado no SauceDemo
+  Quero gerenciar os itens do meu carrinho de compras
+  Para controlar minha lista de produtos antes do checkout"
