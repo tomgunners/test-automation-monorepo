@@ -14,7 +14,6 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@automation/shared": "*",
     "chai": "^4.4.1",
     "dotenv": "^16.4.5",
     "mocha": "^10.3.0",

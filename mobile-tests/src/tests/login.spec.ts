@@ -1,11 +1,9 @@
 import { LoginScreen } from '../pages/login.screen';
-import { USERS } from '../utils/test.utils';
+import { USERS }        from '../utils/test.utils';
 
-//Suíte: Login
- 
 describe('Login', () => {
   const login = new LoginScreen();
-  
+
   beforeEach(async () => {
     await browser.reloadSession();
     await login.waitForScreen();
@@ -16,7 +14,7 @@ describe('Login', () => {
     await login.verifyLoginSuccess();
   });
 
-  it('Validar erro ao informar senha inválida', async () => {
+  it('Validar erro ao informar senha inválida (menos de 8 caracteres)', async () => {
     await login.login({ username: USERS.standard.username, password: 'errada' });
 
     expect(await login.hasError()).toBe(true);
@@ -24,7 +22,7 @@ describe('Login', () => {
     expect(await login.isActive()).toBe(true);
   });
 
-  it('Validar erro ao informar email incorreto', async () => {
+  it('Validar erro ao informar email em formato incorreto', async () => {
     await login.login(USERS.invalid);
 
     expect(await login.hasError()).toBe(true);

@@ -1,30 +1,38 @@
 # docker-compose.yml — Ambiente local com docker-android
 #
-# Sobe o emulador Android 14 + servidor Appium num único container,
-# espelhando exatamente o ambiente de CI (GitHub Actions).
+# Sobe o emulador Android 14 + servidor Appium num único container.
 #
-# Pré-requisitos (Windows/WSL2):
-#   - Docker Desktop instalado com backend WSL2
-#   - Virtualização aninhada habilitada — crie/edite %USERPROFILE%\.wslconfig:
+# ── Modo padrão (sem KVM) ─────────────────────────────────────────────────────
 #
-#       [wsl2]
-#       nestedVirtualization=true
+#   Usa renderização por software puro (swiftshader_indirect + no-accel).
+#   Funciona em qualquer máquina: Windows/WSL2, macOS/Lima, Linux sem KVM.
+#   É mais lento para bootar (~3-5 min), mas estável.
 #
-#     Reinicie o WSL: wsl --shutdown
+# ── Modo com KVM (opcional — Linux nativo) ────────────────────────────────────
 #
-#   - KVM habilitado no WSL2 — rode UMA VEZ no terminal WSL:
+#   Para acelerar em Linux nativo com KVM disponível, use o override:
 #
-#       sudo usermod -aG kvm $USER
-#       sudo chmod 666 /dev/kvm
+#     docker compose -f docker-compose.yml -f docker-compose.kvm.yml up -d
 #
-#     Verifique: ls -l /dev/kvm  →  crw-rw-rw- root kvm ...
+#   Verifique se o KVM está acessível antes:
+#     ls -l /dev/kvm  →  deve ser crw-rw-rw-
+#     sudo chmod 666 /dev/kvm   (se necessário)
+#
+# ── Pré-requisitos ────────────────────────────────────────────────────────────
 #
 #   - APK em mobile-tests/apps/wdio-native-demo-app.apk
+#   - Descomentar ANDROID_APP_CONTAINER_PATH no mobile-tests/.env
 #
-# Uso:
-#   docker compose up -d          # inicia em background
-#   docker compose logs -f        # acompanha logs (aguarde "Appium is running")
-#   docker compose down           # encerra e remove o container
+# ── Uso ───────────────────────────────────────────────────────────────────────
+#
+#   yarn docker:up      → sobe container + aguarda Appium estar pronto
+#   yarn docker:test    → executa os testes (docker:up + wdio + docker:down)
+#   yarn docker:down    → encerra e remove o container
+#
+#   Ou manualmente:
+#   docker compose up -d          → inicia em background
+#   docker compose logs -f        → acompanha logs (aguarde "Appium is running")
+#   docker compose down           → encerra e remove o container
 
 services:
   android:
@@ -32,25 +40,33 @@ services:
     container_name: mobile-tests-android-1
     privileged: true
     ports:
-      - "6080:6080"   
-      - "4723:4723"   
-      - "5555:5555"   
+      - "6080:6080"   # VNC Web — acesse http://localhost:6080 para ver a tela
+      - "4723:4723"   # Appium Server
+      - "5555:5555"   # ADB
     environment:
       - EMULATOR_DEVICE=Samsung Galaxy S10
       - WEB_VNC=true
       - APPIUM=true
       - MEMORY=4096
       - DATAPARTITION=4096
+      # ── Flags do emulador ──────────────────────────────────────────────────
+      # -gpu swiftshader_indirect : renderização por software (sem GPU)
+      # -no-accel                 : desativa KVM — OBRIGATÓRIO quando /dev/kvm
+      #                             não está mapeado ou não funciona no host
+      # -no-audio                 : sem saída de áudio (não existe no container)
+      # -no-boot-anim             : acelera o boot
+      # -no-snapshot              : evita erros de snapshot corrompido
       - EMULATOR_ARGS=-no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot -no-accel
     volumes:
       # APK montado em /apps — referenciado por ANDROID_APP_CONTAINER_PATH no .env
       - ./apps:/apps
-    devices:
-      - /dev/kvm:/dev/kvm
+    # ── /dev/kvm NÃO mapeado por padrão ───────────────────────────────────────
+    # Mapear o KVM quando -no-accel está ativo causa conflito e crash do emulador.
+    # Use docker-compose.kvm.yml para habilitar aceleração em Linux nativo.
     shm_size: "2gb"
     healthcheck:
       test: ["CMD", "curl", "-sf", "http://localhost:4723/status"]
-      interval: 10s
+      interval: 15s
       timeout: 5s
-      retries: 30
-      start_period: 120s
+      retries: 40
+      start_period: 180s

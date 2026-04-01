@@ -1,33 +1,49 @@
+#!/usr/bin/env node
 /**
- * Aguarda o servidor Appium estar pronto para aceitar conexões.
+ * scripts/wait-for-appium.js
  *
- * Tenta GET /status a cada POLL_INTERVAL ms por até MAX_WAIT ms.
- * Encerra com exit code 1 se o Appium não responder no tempo limite.
+ * Aguarda o servidor Appium estar pronto para aceitar conexões.
+ * Valida tanto o status HTTP 200 quanto o campo `value.ready === true` no JSON.
  *
  * Uso: node scripts/wait-for-appium.js
- * Variáveis lidas do ambiente:
- *   APPIUM_HOST        — padrão: 127.0.0.1
- *   APPIUM_PORT        — padrão: 4723
- *   APPIUM_WAIT_MS     — tempo máximo em ms (padrão: 300000 = 5 min)
- *   APPIUM_POLL_MS     — intervalo entre tentativas em ms (padrão: 5000)
+ *
+ * Variáveis de ambiente:
+ *   APPIUM_HOST    — host do Appium    (padrão: 127.0.0.1)
+ *   APPIUM_PORT    — porta do Appium   (padrão: 4723)
+ *   APPIUM_WAIT_MS — timeout máximo ms (padrão: 300000 = 5 min)
+ *   APPIUM_POLL_MS — intervalo entre tentativas ms (padrão: 5000)
  */
 
 const http = require('http');
 
-const HOST         = process.env.APPIUM_HOST    || '127.0.0.1';
-const PORT         = Number(process.env.APPIUM_PORT    || 4723);
-const MAX_WAIT_MS  = Number(process.env.APPIUM_WAIT_MS || 300_000);
-const POLL_MS      = Number(process.env.APPIUM_POLL_MS || 5_000);
+const HOST        = process.env.APPIUM_HOST    ?? '127.0.0.1';
+const PORT        = Number(process.env.APPIUM_PORT    ?? 4723);
+const MAX_WAIT_MS = Number(process.env.APPIUM_WAIT_MS ?? 300_000);
+const POLL_MS     = Number(process.env.APPIUM_POLL_MS ?? 5_000);
 
 const started = Date.now();
+
+console.log(`Aguardando Appium em http://${HOST}:${PORT}/status (timeout: ${MAX_WAIT_MS / 1000}s)...`);
 
 function checkAppium() {
   return new Promise((resolve) => {
     const req = http.get(
-      { hostname: HOST, port: PORT, path: '/status', timeout: 3000 },
-      (res) => resolve(res.statusCode === 200),
+      { hostname: HOST, port: PORT, path: '/status', timeout: 4000 },
+      (res) => {
+        let body = '';
+        res.on('data', (chunk) => { body += chunk; });
+        res.on('end', () => {
+          try {
+            const json = JSON.parse(body);
+            // Valida tanto value.ready (Appium 2) quanto status 200 (fallback)
+            resolve(json?.value?.ready === true || res.statusCode === 200);
+          } catch {
+            resolve(false);
+          }
+        });
+      },
     );
-    req.on('error', () => resolve(false));
+    req.on('error',   () => resolve(false));
     req.on('timeout', () => { req.destroy(); resolve(false); });
   });
 }
@@ -48,13 +64,11 @@ async function waitForAppium() {
     const ready = await checkAppium();
 
     if (ready) {
-      console.log(`✅ Appium está pronto (tentativa ${attempt}, ${Math.round(elapsed / 1000)}s)`);
+      console.log(`\n✅ Appium está pronto (tentativa ${attempt}, ${Math.round(elapsed / 1000)}s)`);
       return;
     }
 
-    console.log(
-      `  tentativa ${attempt} — Appium não disponível ainda, aguardando ${POLL_MS / 1000}s...`,
-    );
+    process.stdout.write('.');
     attempt++;
     await new Promise((r) => setTimeout(r, POLL_MS));
   }

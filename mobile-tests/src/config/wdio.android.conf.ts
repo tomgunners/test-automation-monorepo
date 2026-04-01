@@ -1,12 +1,8 @@
-import type { Options } from '@wdio/types';
+import type { Options }      from '@wdio/types';
+import type { Capabilities } from '@wdio/types';
 import path from 'path';
 import { sharedConfig } from './wdio.shared.conf';
 
-/**
- * Resolve o caminho do APK:
- *  - CI / docker-android: ANDROID_APP_CONTAINER_PATH=/apps/<nome>.apk (volume montado no container)
- *  - Local sem docker   : caminho relativo à pasta apps/ do workspace
- */
 function resolveAppPath(): string {
   if (process.env.ANDROID_APP_CONTAINER_PATH) {
     return process.env.ANDROID_APP_CONTAINER_PATH;
@@ -18,6 +14,42 @@ function resolveAppPath(): string {
   );
 }
 
+const androidCapabilities: WebdriverIO.Capabilities & Record<string, unknown> = {
+  platformName: 'Android',
+
+  'appium:automationName': 'UiAutomator2',
+
+  /**
+   * Versão do Android.
+   * docker-android usa emulator_14.0 → plataforma 14.
+   * Verificar em dispositivo físico: adb shell getprop ro.build.version.release
+   */
+  'appium:platformVersion': process.env.ANDROID_PLATFORM_VERSION ?? '14',
+
+  /**
+   * Nome do dispositivo.
+   * docker-android sempre expõe como emulator-5554.
+   * Verificar com: adb devices
+   */
+  'appium:deviceName': process.env.ANDROID_DEVICE_NAME ?? 'emulator-5554',
+
+  /** Caminho absoluto para o APK (resolvido por resolveAppPath) */
+  'appium:app': resolveAppPath(),
+
+  /** false → reinstala o app a cada sessão (estado limpo garantido) */
+  'appium:noReset':   false,
+  'appium:fullReset': false,
+
+  /** Concede permissões automaticamente — evita dialogs bloqueantes */
+  'appium:autoGrantPermissions': true,
+
+  // ── Timeouts ──────────────────────────────────────────────────────────────
+  'appium:newCommandTimeout':     Number(process.env.APPIUM_COMMAND_TIMEOUT ?? 300),
+  'appium:androidInstallTimeout': 90000,
+  'appium:adbExecTimeout':        60000,
+  'appium:implicitWaitTimeout':   Number(process.env.APPIUM_IMPLICIT_WAIT ?? 10000),
+};
+
 export const config: Options.Testrunner = {
   ...sharedConfig,
 
@@ -26,40 +58,9 @@ export const config: Options.Testrunner = {
   port:     Number(process.env.APPIUM_PORT ?? 4723),
   path:     '/',
 
-  // ── Capabilities Android ──────────────────────────────────────────────────
-  capabilities: [{
-    platformName: 'Android',
+  // Timeouts globais do WebdriverIO para comandos de espera
+  waitforTimeout:  Number(process.env.WDIO_WAIT_TIMEOUT ?? 15000),
+  waitforInterval: 500,
 
-    /** Automation engine do Appium para Android */
-    'appium:automationName': 'UiAutomator2',
-
-    /**
-     * Versão do Android.
-     * docker-android usa a imagem emulator_14.0 → plataforma 14.
-     * Verificar em dispositivo físico: adb shell getprop ro.build.version.release
-     */
-    'appium:platformVersion': process.env.ANDROID_PLATFORM_VERSION ?? '14',
-
-    /**
-     * Nome do dispositivo.
-     * docker-android sempre expõe o emulador como emulator-5554.
-     * Verificar com: adb devices
-     */
-    'appium:deviceName': process.env.ANDROID_DEVICE_NAME ?? 'emulator-5554',
-
-    /** Caminho absoluto para o APK (resolvido por resolveAppPath) */
-    'appium:app': resolveAppPath(),
-
-    /** false → reinstala o app a cada sessão (estado limpo garantido) */
-    'appium:noReset':   false,
-    'appium:fullReset': false,
-
-    /** Concede permissões automaticamente — evita dialogs bloqueantes */
-    'appium:autoGrantPermissions': true,
-
-    // ── Timeouts ──────────────────────────────────────────────────────────
-    'appium:newCommandTimeout':     Number(process.env.APPIUM_COMMAND_TIMEOUT ?? 300),
-    'appium:androidInstallTimeout': 90000,
-    'appium:adbExecTimeout':        60000,
-  }],
+  capabilities: [androidCapabilities],
 };

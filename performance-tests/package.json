@@ -4,6 +4,7 @@
   "description": "Testes de Performance com k6",
   "private": true,
   "scripts": {
+    "test:smoke": "cross-env STAGES_PROFILE=smoke node scripts/k6-runner.js src/scenarios/products.test.js",
     "test:gate": "node scripts/k6-runner.js src/scenarios/products.test.js",
     "test:informative": "node scripts/k6-runner.js --no-thresholds src/scenarios/products.test.js",
     "test:load": "cross-env STAGES_PROFILE=load node scripts/k6-runner.js src/scenarios/products.test.js",

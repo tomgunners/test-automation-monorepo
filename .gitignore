@@ -42,17 +42,5 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# ── Playwright ────────────────────────────────────────────────────────────────
-playwright-report/
-test-results/
-blob-report/
-
-# ── k6 ────────────────────────────────────────────────────────────────────────
-results/
-
 # ── Mobile ────────────────────────────────────────────────────────────────────
-apps/
 reports/screenshots/
-
-# ─── Limpeza do Projeto  ──────────────────────────────────────────
-clean.ps1

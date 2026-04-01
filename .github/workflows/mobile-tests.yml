@@ -40,7 +40,6 @@ jobs:
           path: |
             node_modules
             mobile-tests/node_modules
-            shared/node_modules
           key: mobile-node-modules-${{ runner.os }}-${{ hashFiles('yarn.lock') }}
           restore-keys: mobile-node-modules-${{ runner.os }}-
 

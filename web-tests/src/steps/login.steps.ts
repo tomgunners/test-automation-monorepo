@@ -4,16 +4,6 @@ import { CustomWorld } from '../hooks/world';
 import { ErrorMessages } from '../data/messages';
 import { resolveUser } from '../utils/user.utils';
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function getPage(world: CustomWorld) {
-  if (!world.page) {
-    throw new Error('Page não foi inicializada');
-  }
-
-  return world.page;
-}
-
 // ─── Given ────────────────────────────────────────────────────────────────────
 
 Given('que estou na página de login', async function (this: CustomWorld) {
@@ -27,7 +17,6 @@ When(
   'informo as credenciais do {string}',
   async function (this: CustomWorld, userLabel: string) {
     const { username, password } = resolveUser(userLabel);
-
     await this.login.fillUsername(username);
     await this.login.fillPassword(password);
   }
@@ -39,15 +28,11 @@ When('clico no botão de login', async function (this: CustomWorld) {
 
 // ─── Then ─────────────────────────────────────────────────────────────────────
 
-Then(
-  'devo ser redirecionado para a página de inventário',
-  async function (this: CustomWorld) {
-    await this.inventory.waitForPageLoad();
-
-    const url = getPage(this).url();
-    expect(url).toContain('/inventory.html');
-  }
-);
+Then('devo ser redirecionado para a página de inventário', async function (this: CustomWorld) {
+  await this.inventory.waitForPageLoad();
+  const url = this.page!.url();
+  expect(url).toContain('/inventory.html');
+});
 
 Then(
   'o título da página deve ser {string}',
@@ -61,17 +46,13 @@ Then(
   'devo ver uma mensagem de erro de credenciais inválidas',
   async function (this: CustomWorld) {
     const errorMessage = await this.login.getErrorMessage();
-
-    expect(errorMessage).toContain(
-      ErrorMessages.invalidCredentials
-    );
-
+    expect(errorMessage).toContain(ErrorMessages.invalidCredentials);
     this.lastErrorMessage = errorMessage;
   }
 );
 
 Then('permaneço na página de login', async function (this: CustomWorld) {
-  const url = getPage(this).url();
+  const url = this.page!.url();
   expect(url).not.toContain('/inventory.html');
 });
 
@@ -79,11 +60,7 @@ Then(
   'devo ver uma mensagem informando que o usuário está bloqueado',
   async function (this: CustomWorld) {
     const errorMessage = await this.login.getErrorMessage();
-
-    expect(errorMessage).toContain(
-      ErrorMessages.lockedUser
-    );
-
+    expect(errorMessage).toContain(ErrorMessages.lockedUser);
     this.lastErrorMessage = errorMessage;
   }
 );

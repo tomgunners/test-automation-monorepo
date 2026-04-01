@@ -45,7 +45,6 @@ jobs:
           path: |
             node_modules
             web-tests/node_modules
-            shared/node_modules
           key: web-node-modules-${{ runner.os }}-${{ hashFiles('yarn.lock') }}
           restore-keys: web-node-modules-${{ runner.os }}-
 

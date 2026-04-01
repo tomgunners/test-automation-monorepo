@@ -4,15 +4,16 @@
   "description": "Testes Mobile com WebdriverIO v8 + Appium 2 + TypeScript",
   "private": true,
   "scripts": {
-    "test": "wdio run src/config/wdio.android.conf.ts",
+    "test": "yarn test:android",
     "test:android": "wdio run src/config/wdio.android.conf.ts",
+    "test:ios": "wdio run src/config/wdio.ios.conf.ts",
     "report:allure": "allure generate allure-results -o allure-report --clean && allure open allure-report",
+    "allure:generate": "allure generate allure-results -o allure-report --clean",
     "clean": "rimraf allure-results allure-report reports dist",
     "lint": "eslint src --ext .ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@automation/shared": "*",
     "dotenv": "^16.4.5"
   },
   "devDependencies": {

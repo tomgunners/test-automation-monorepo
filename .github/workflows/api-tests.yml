@@ -34,7 +34,6 @@ jobs:
           path: |
             node_modules
             api-tests/node_modules
-            shared/node_modules
           key: api-node-modules-${{ runner.os }}-${{ hashFiles('yarn.lock') }}
           restore-keys: api-node-modules-${{ runner.os }}-
 

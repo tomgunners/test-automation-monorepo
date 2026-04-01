@@ -1,6 +1,17 @@
 # ── Workflow reutilizável — Performance Tests ─────────────────────────────────
+#
 # Chamado pelo orquestrador ci.yml via workflow_call.
-# BASE_URL aponta exclusivamente para dummyjson.com — nunca para o saucedemo.
+# BASE_URL aponta exclusivamente para dummyjson.com.
+#
+# ── Estratégia de perfis no CI ────────────────────────────────────────────────
+#
+#   smoke (padrão automático) → 2 VUs / 30s
+#     Roda em todo push/PR. Verifica que os endpoints respondem corretamente
+#     sem impor carga real. Rápido (~1min) e não bloqueia o pipeline.
+#
+#   load | spike | soak (sob demanda via workflow_dispatch)
+#     Perfis de carga real, disparados manualmente quando necessário.
+#     Podem quebrar o pipeline se thresholds falharem (modo gate).
 
 name: Performance Tests
 
@@ -12,32 +23,32 @@ on:
         type: string
         default: 'informative'
       perf_profile:
-        description: 'Perfil k6: load | spike | soak'
+        description: 'Perfil k6: smoke | load | spike | soak'
         type: string
-        default: 'load'
+        default: 'smoke'
   workflow_dispatch:
     inputs:
       perf_mode:
-        description: 'Modo de performance'
+        description: 'Modo de execução'
         required: false
         default: 'informative'
         type: choice
         options:
-          - gate
-          - informative
+          - gate        # quebra o pipeline se os thresholds falharem
+          - informative # apenas reporta, nunca quebra
       perf_profile:
         description: 'Perfil k6'
         required: false
-        default: 'load'
+        default: 'smoke'
         type: choice
-        options: [load, spike, soak]
+        options: [smoke, load, spike, soak]
 
 env:
   NODE_VERSION: '20'
 
 jobs:
   performance-tests:
-    name: Performance Tests (k6)
+    name: Performance Tests (k6 — ${{ inputs.perf_profile || 'smoke' }})
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
@@ -76,17 +87,28 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y k6
 
+      # ── Execução ───────────────────────────────────────────────────────────────
+      #
+      # Perfil smoke: sempre usa test:smoke (sem thresholds de throughput pesados)
+      # Outros perfis: gate quebra pipeline; informative apenas reporta
       - name: Executar testes de Performance
         run: |
+          PROFILE="${{ inputs.perf_profile || 'smoke' }}"
           MODE="${{ inputs.perf_mode || 'informative' }}"
-          if [ "$MODE" = "informative" ]; then
-            yarn workspace performance-tests test:informative
-          else
+
+          if [ "$PROFILE" = "smoke" ]; then
+            echo "Perfil: smoke (sanity check — 2 VUs / 30s)"
+            yarn workspace performance-tests test:smoke
+          elif [ "$MODE" = "gate" ]; then
+            echo "Perfil: $PROFILE (gate — quebra se thresholds falharem)"
             yarn workspace performance-tests test:gate
+          else
+            echo "Perfil: $PROFILE (informative — apenas reporta)"
+            yarn workspace performance-tests test:informative
           fi
         env:
           BASE_URL:       https://dummyjson.com
-          STAGES_PROFILE: ${{ inputs.perf_profile || 'load' }}
+          STAGES_PROFILE: ${{ inputs.perf_profile || 'smoke' }}
 
       - name: Upload resultados k6
         if: always()
